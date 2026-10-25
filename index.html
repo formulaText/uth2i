@@ -1,0 +1,1467 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="XのUnder the Hoodレポートを、X投稿用の図解2枚に変換するツール。データは端末の外に出ません。">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px/1.5 system-ui,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<title>UtH2i</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Outfit:wght@500;600;800&family=M+PLUS+Rounded+1c:wght@500;800;900&family=Fredoka:wght@600;700&family=IBM+Plex+Sans+JP:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* Layout: 余白多めの1カラム。ヘッダー → 読み込み → 2枚の図解。見た目は下のドロワーで切り替える */
+:root{
+  --bg:#F7F7F5; --surface:#FFFFFF; --ink:#141414; --muted:#6E6E6A; --faint:#A3A39E; --line:#E6E6E2;
+  --bad:#B42318; --bad-soft:#FBEAE8;
+  --font-logo:"Outfit","Helvetica Neue",Arial,sans-serif;
+  --font-body:"IBM Plex Sans JP","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111111; --surface:#191919; --ink:#EDEDEA; --muted:#9A9A95; --faint:#62625E; --line:#2A2A28;
+  --bad:#FF8A80; --bad-soft:#331A18; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111111; --surface:#191919; --ink:#EDEDEA; --muted:#9A9A95; --faint:#62625E; --line:#2A2A28;
+  --bad:#FF8A80; --bad-soft:#331A18; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.7;
+  padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));padding-block:6px 110px}
+p{margin:0}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+button{font:inherit;cursor:pointer;color:inherit}
+.wrap{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+
+/* ヘッダー */
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-block:12px;
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:4;background:var(--bg);
+  box-shadow:0 0 0 100vmax var(--bg),0 1px 0 100vmax transparent;clip-path:inset(0 -100vmax -1px);transition:box-shadow .2s}
+.top.scrolled{box-shadow:0 0 0 100vmax var(--bg),0 1px 0 100vmax var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.mark{flex:none;display:block}
+.logo{font-family:var(--font-logo);font-weight:600;font-size:1.45rem;letter-spacing:-.02em;line-height:1}
+.logo b{font-weight:600;color:var(--faint)}
+.lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;flex:none}
+.lang button{border:0;background:none;border-radius:999px;padding:4px 12px;font-size:.78rem;font-weight:500;color:var(--muted)}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.lead{color:var(--muted);font-size:.85rem;margin-top:-10px}
+
+/* 読み込み */
+.loader{display:flex;flex-direction:column;gap:8px}
+.get{font-size:.82rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:0 6px;align-items:baseline}
+.get-url{font-family:var(--font-mono);font-size:.75rem;color:var(--faint);user-select:all}
+.get a{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px;display:inline-flex;align-items:center;gap:4px}
+.load{width:100%;font-weight:600;font-size:.98rem;border-radius:10px;padding:14px;border:0;background:var(--ink);color:var(--surface)}
+/* iOSは16px未満の入力欄を選ぶと自動で拡大するので、16pxにしておく */
+.catcher{width:100%;height:46px;resize:none;overflow:hidden;white-space:nowrap;font-family:var(--font-mono);font-size:16px;line-height:24px;
+  background:transparent;color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:10px 12px}
+.catcher::placeholder{color:var(--faint);font-family:var(--font-body);font-size:14px}
+.catcher:focus{border-style:solid;border-color:var(--muted);outline:none}
+.state{font-size:.82rem;color:var(--muted)}
+.state.on{color:var(--ink);font-weight:600}
+.err{color:var(--bad);background:var(--bad-soft);border-radius:10px;padding:10px 12px;font-size:.86rem}
+
+/* プレビュー */
+.stage{display:flex;flex-direction:column;gap:12px;min-width:0}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:none;padding:6px 0 10px;font-size:.85rem;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.pages{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stale{opacity:.35}
+.pages figure{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.pages img{width:100%;aspect-ratio:1240/1754;display:block;border-radius:6px;border:1px solid var(--line);background:var(--surface)}
+.pages figcaption{font-size:.78rem;color:var(--muted);display:flex;justify-content:space-between;gap:6px;align-items:center}
+.mini{border:0;background:none;padding:2px 0;font-size:.78rem;font-weight:600;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.mini:disabled,.btn:disabled,.zip:disabled{opacity:.35;cursor:not-allowed}
+.xpost{border-radius:12px;padding:14px;display:flex;gap:12px;border:1px solid var(--line)}
+.xpost .av{width:40px;height:40px;border-radius:50%;flex:none}
+.xpost .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.xpost .nm{font-weight:700;font-size:.9rem}
+.xgrid{aspect-ratio:16/9;display:grid;grid-template-columns:1fr 1fr;gap:2px;border-radius:16px;overflow:hidden}
+.xgrid img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+.note{font-size:.78rem;color:var(--muted)}
+
+/* 投稿用テキスト */
+.texts{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:16px}
+.tx-title{margin:0;font-size:.95rem;font-weight:600}
+.tx{display:flex;flex-direction:column;gap:6px}
+.tx-head{display:flex;align-items:baseline;gap:10px;font-size:.82rem}
+.tx-head > span:first-child{font-weight:600}
+.tx-count{color:var(--faint);font-size:.75rem;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.tx-count.over{color:var(--bad)}
+.tx-copy{margin-left:auto;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:.78rem;font-weight:600}
+.tx-copy:disabled{opacity:.35;cursor:not-allowed}
+.tx-copy.done{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.tx textarea{width:100%;resize:vertical;font:inherit;font-size:.85rem;line-height:1.6;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+
+/* 保存データ */
+.data{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:16px}
+.hist-wrap{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;max-height:calc(44px * 9.5);overflow-y:auto;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.hist::-webkit-scrollbar{display:none}
+.hist li{flex:none}
+.hist li+li{border-top:1px solid var(--line)}
+.hist button{width:100%;height:44px;display:flex;justify-content:space-between;align-items:center;gap:10px;border:0;background:var(--surface);padding:0 14px 0 12px;text-align:left}
+/* iOS風：スクロール中だけ細いハンドルが浮かぶ */
+.hist-thumb{position:absolute;top:0;right:3px;width:3px;border-radius:2px;background:var(--muted);opacity:0;transition:opacity .35s;pointer-events:none}
+.hist-thumb.on{opacity:.55;transition:opacity .1s}
+.hist button[aria-current="true"]{background:var(--bg);font-weight:600}
+.hist .h-main{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist .h-sub{flex:none;color:var(--muted);font-size:.75rem;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.data-btns{display:flex;flex-wrap:wrap;gap:8px}
+.data-btns .tx-copy{margin-left:0}
+.tx-copy.danger{color:var(--bad)}
+.tx-copy.danger-solid{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+/* 消去確認のモーダル（背面はぼかし・スクロール不可） */
+.modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
+  padding:max(20px,env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) max(20px,env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));
+  background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);overscroll-behavior:contain;touch-action:none}
+.modal-card{width:100%;max-width:360px;background:var(--surface);color:var(--ink);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.modal-card h2{margin:0;font-size:1rem}
+.modal-card p{font-size:.88rem;color:var(--muted)}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+.modal-btns .tx-copy{margin-left:0;padding:8px 16px;font-size:.85rem}
+@media (prefers-reduced-transparency:reduce){.modal{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(0,0,0,.55)}}
+
+/* 下部バーとドロワー */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);
+  padding:10px max(20px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
+.bar-in{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:4px}
+.bar-row{display:flex;gap:8px}
+.btn{font-weight:600;border-radius:10px;padding:11px 14px;border:1px solid var(--line);background:var(--surface);flex:1;min-width:0}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.btn.look{flex:0 0 auto;display:flex;align-items:center;gap:8px}
+.xpost-btn{flex:0 0 auto;display:flex;align-items:center;justify-content:center;text-decoration:none;color:var(--ink);white-space:nowrap}
+.xpost-btn[aria-disabled="true"]{opacity:.35;pointer-events:none}
+.chev{width:10px;height:10px;transition:transform .2s}
+.btn.look[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.status{font-size:.76rem;color:var(--muted);min-height:1.3em}
+.drawer{position:fixed;left:0;right:0;z-index:5;bottom:var(--bar-h,72px);background:var(--surface);border-top:1px solid var(--line);
+  transform:translateY(calc(100% + var(--bar-h,72px)));transition:transform .22s ease;
+  padding:16px max(20px,env(safe-area-inset-right,0px)) 16px max(20px,env(safe-area-inset-left,0px))}
+.drawer.open{transform:none}
+.drawer-in{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.row{display:grid;grid-template-columns:6.5em 1fr;gap:10px;align-items:baseline}
+.row > span{font-size:.78rem;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:4px 16px}
+.chip{border:0;background:none;padding:4px 0;font-size:.9rem;color:var(--muted);border-bottom:1.5px solid transparent}
+.chip[aria-pressed="true"]{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}
+.zip{align-self:flex-start;border:0;background:none;color:var(--muted);font-size:.8rem;padding:2px 0;text-decoration:underline;text-underline-offset:3px}
+/* ライトボックス（どのテーマでも暗い幕で固定） */
+.pages img,.xgrid img{cursor:zoom-in}
+.pages img.blank,.xgrid img.blank{cursor:default;border-color:transparent;background:transparent}
+.lb{position:fixed;inset:0;z-index:30;background:#0C0C0C;color:#FFFFFF;display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+.lb-view{flex:1;min-height:0;overflow:hidden;touch-action:none;position:relative}
+.lb-track{display:flex;width:200%;height:100%;transition:transform .26s ease}
+.lb-track.drag{transition:none}
+.lb-slide{width:50%;height:100%;display:flex;align-items:center;justify-content:center;padding:60px 16px 8px}
+.lb-slide img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.lb-close{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:calc(env(safe-area-inset-right,0px) + 12px);z-index:1;
+  width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#FFFFFF;display:grid;place-items:center}
+.lb-foot{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 16px 16px}
+.lb-dots{display:flex;gap:4px}
+.lb-dots button{width:28px;height:28px;border:0;background:none;display:grid;place-items:center;padding:0}
+.lb-dots button::after{content:"";width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.35)}
+.lb-dots button[aria-current="true"]::after{background:#FFFFFF}
+.lb-hint{font-size:.75rem;color:rgba(255,255,255,.6)}
+.lb :focus-visible{outline:2px solid #FFFFFF;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.drawer,.chev,.lb-track{transition:none}}
+</style>
+
+<div class="wrap">
+  <header class="top" id="top">
+    <div class="brand">
+      <svg class="mark" width="26" height="22" viewBox="0 0 26 22" aria-hidden="true">
+        <rect x="1" y="1" width="10.5" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="14.5" y="1" width="10.5" height="20" rx="2" fill="currentColor"/>
+      </svg>
+      <span class="logo">UtH<b>2</b>i</span>
+    </div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="ja" aria-pressed="true">日本語</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </header>
+  <p class="lead" data-i18n="lead"></p>
+
+  <section class="loader">
+    <p class="get"><span data-i18n="getLead"></span><a href="https://x.com/i/under_the_hood" target="_blank" rel="noopener"><span data-i18n="getLink"></span><svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2h6v6M10 2 3 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a><span class="get-url">x.com/i/under_the_hood</span></p>
+    <button id="load" class="load" type="button" data-i18n="load"></button>
+    <textarea id="src" class="catcher" rows="1" spellcheck="false" data-i18n-ph="catcher" data-i18n-aria="catcherAria"></textarea>
+    <p class="state" id="state"></p>
+    <div id="err" class="err" hidden></div>
+  </section>
+
+  <section class="stage">
+    <div class="tabs" role="group" data-i18n-aria="tabsAria">
+      <button type="button" data-view="all" aria-pressed="true" data-i18n="tabAll"></button>
+      <button type="button" data-view="x" aria-pressed="false" data-i18n="tabX"></button>
+    </div>
+    <div id="viewAll" class="pages">
+      <figure><img id="img1" data-i18n-alt="alt1"><figcaption><span data-i18n="cap1"></span><button type="button" class="mini" data-save="0" data-i18n="saveOne"></button></figcaption></figure>
+      <figure><img id="img2" data-i18n-alt="alt2"><figcaption><span data-i18n="cap2"></span><button type="button" class="mini" data-save="1" data-i18n="saveOne"></button></figcaption></figure>
+    </div>
+    <div id="viewX" hidden>
+      <div class="xpost" id="xpost">
+        <div class="av" id="xav"></div>
+        <div class="body"><span class="nm" data-i18n="yourPost"></span>
+          <div class="xgrid"><img id="ximg1" data-i18n-alt="alt1"><img id="ximg2" data-i18n-alt="alt2"></div>
+        </div>
+      </div>
+    </div>
+    <p class="note" data-i18n="note"></p>
+  </section>
+
+  <section class="texts" aria-labelledby="txTitle">
+    <h2 class="tx-title" id="txTitle" data-i18n="txTitle"></h2>
+    <p class="note" data-i18n="txNote"></p>
+    <div class="tx" data-tx="post"><div class="tx-head"><span data-i18n="txPost"></span><span class="tx-count" id="cnt-post"></span><button type="button" class="tx-copy" data-copy="post" data-i18n="copy"></button></div><textarea id="tx-post" rows="4" readonly></textarea></div>
+    <div class="tx" data-tx="alt1"><div class="tx-head"><span data-i18n="txAlt1"></span><span class="tx-count" id="cnt-alt1"></span><button type="button" class="tx-copy" data-copy="alt1" data-i18n="copy"></button></div><textarea id="tx-alt1" rows="4" readonly></textarea></div>
+    <div class="tx" data-tx="alt2"><div class="tx-head"><span data-i18n="txAlt2"></span><span class="tx-count" id="cnt-alt2"></span><button type="button" class="tx-copy" data-copy="alt2" data-i18n="copy"></button></div><textarea id="tx-alt2" rows="4" readonly></textarea></div>
+  </section>
+
+<section class="data" aria-labelledby="dataTitle">
+    <h2 class="tx-title" id="dataTitle" data-i18n="dataTitle"></h2>
+    <p class="note" data-i18n="dataNote"></p>
+    <div class="data-btns">
+      <button type="button" class="tx-copy" id="exportBtn" data-i18n="export"></button>
+      <button type="button" class="tx-copy" id="importBtn" data-i18n="import"></button>
+      <button type="button" class="tx-copy danger" id="clearBtn" data-i18n="clearAll"></button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+    <p class="status" id="dataStatus" role="status"></p>
+    <div class="hist-wrap" id="histWrap">
+      <ul class="hist" id="hist"></ul>
+      <span class="hist-thumb" id="histThumb" aria-hidden="true"></span>
+    </div>
+    <p class="note" id="histEmpty" data-i18n="histEmpty"></p>
+  </section>
+
+</div>
+
+<div class="drawer" id="drawer" inert>
+  <div class="drawer-in">
+    <div class="row"><span data-i18n="optStyle"></span><div class="chips" id="styles"></div></div>
+    <div class="row"><span data-i18n="optMode"></span><div class="chips" id="modes"></div></div>
+    <div class="row"><span data-i18n="optSort"></span><div class="chips" id="sorts"></div></div>
+    <button type="button" class="zip" id="saveZip" data-i18n="zip"></button>
+  </div>
+</div>
+<div class="bar" id="bar">
+  <div class="bar-in">
+    <div class="bar-row">
+      <button id="look" class="btn look" type="button" aria-expanded="false" aria-controls="drawer"><span data-i18n="look"></span>
+        <svg class="chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 7 L5 3 L9 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="saveBoth" class="btn primary" type="button"></button>
+      <a id="postX" class="btn xpost-btn" href="https://x.com/intent/post" target="_blank" rel="noopener" data-i18n="postX"></a>
+    </div>
+    <p class="status" id="status"></p>
+  </div>
+</div>
+
+<div class="modal" id="confirmBox" hidden>
+  <div class="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="cfTitle" aria-describedby="cfText">
+    <h2 id="cfTitle" data-i18n="clearTitle"></h2>
+    <p id="cfText" data-i18n="clearConfirm"></p>
+    <div class="modal-btns">
+      <button type="button" class="tx-copy" id="clearNo" data-i18n="clearNo"></button>
+      <button type="button" class="tx-copy danger-solid" id="clearYes" data-i18n="clearYes"></button>
+    </div>
+  </div>
+</div>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" hidden>
+  <button type="button" class="lb-close" id="lbClose"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3 L13 13 M13 3 L3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+  <div class="lb-view" id="lbView">
+    <div class="lb-track" id="lbTrack">
+      <div class="lb-slide"><img id="lb1" data-i18n-alt="alt1" draggable="false"></div>
+      <div class="lb-slide"><img id="lb2" data-i18n-alt="alt2" draggable="false"></div>
+    </div>
+  </div>
+  <div class="lb-foot">
+    <div class="lb-dots"><button type="button" data-lb="0"></button><button type="button" data-lb="1"></button></div>
+    <p class="lb-hint" data-i18n="lbHint"></p>
+  </div>
+</div>
+
+<canvas id="c1" width="1240" height="1754" hidden></canvas>
+<canvas id="c2" width="1240" height="1754" hidden></canvas>
+
+<script>
+
+/* ================= 言語 ================= */
+let lang = "ja";
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const L = {
+  ja:{
+    lead:"XのUnder the Hoodレポートを、X投稿用の図解2枚に。データは端末の外に出ません。",
+    getLead:"レポートの入手：", getLink:"XのUnder the Hoodページ",
+    load:"クリップボードのレポートを読み込む", catcher:"読み込めないときは、タップして「ペースト」", catcherAria:"レポートの貼り付け欄",
+    tabsAria:"プレビューの種類", tabAll:"2枚の全体", tabX:"Xでの見え方", cap1:"1枚目", cap2:"2枚目", saveOne:"この1枚を保存",
+    alt1:"1枚目：ひと目でわかる状況", alt2:"2枚目：内訳ときっかけ", yourPost:"あなたの投稿",
+    note:"1240×1754px（1:√2）の画像2枚です。画像をタップすると大きく表示できます。保存ボタンが使えない環境では、画像を長押しして保存できます。",
+    dataTitle:"保存したレポート", dataNote:"正しく読み込めたレポートは、このブラウザの中に自動で保存されます（同じ内容は1回だけ）。タップすると、そのレポートで図解を作り直します。",
+    histEmpty:"まだ保存されたレポートはありません。", export:"エクスポート", import:"インポート", clearAll:"すべて消去",
+    clearConfirm:"保存したレポートと見た目の設定を、このブラウザからすべて消去します。元に戻せません。", clearYes:"消去する", clearNo:"やめる", clearTitle:"すべて消去しますか？",
+    histPosts:n=>`投稿${n}件`, histSaved:d=>`${d}保存`,
+    exported:"エクスポートしました。", imported:(a,b)=>`${a}件を読み込みました${b?`（重複${b}件はスキップ）`:""}。`, importNone:(b)=>`新しいレポートはありませんでした${b?`（重複${b}件）`:""}。`,
+    importBad:"読み込めませんでした。UtH2iのエクスポートファイルか、Under the HoodのJSONを選んでください。", cleared:"すべて消去しました。",
+    saveFull:"ブラウザの保存容量がいっぱいで、履歴に追加できませんでした。",
+    txTitle:"投稿用テキスト", txNote:"Xに投稿するときの本文と、画像の説明（ALT）です。ALTは画像を追加したあと「説明を追加」に貼り付けます。読み上げ機能を使う人にも内容が伝わります。",
+    txPost:"本文", txAlt1:"1枚目のALT", txAlt2:"2枚目のALT", copy:"コピー", copied:"コピーしました",
+    cntPost:n=>`${n}/280（X換算）`, cntAlt:n=>`${n}/1000字`,
+        lbClose:"閉じる", lbAria:"画像の拡大表示", lbHint:"左右にスワイプで切り替え", lbGo:i=>`${i}枚目を表示`,
+    optStyle:"雰囲気", optMode:"背景", optSort:"並び順", zip:"2枚をZIPで保存（ファイルアプリ向け）", look:"見た目",
+    styles:{standard:"スタンダード",pop:"ポップ",minimal:"ミニマル"},
+    modes:{light:"ライト",dim:"ダークブルー",black:"ブラック"}, sorts:{type:"種類順",level:"注意が必要な順"},
+    saveBoth:"2枚続けて保存", share:"画像を共有", postX:"Xで投稿",
+    svShared:"共有しました。", svShareFail:"共有できませんでした。画像を長押しして保存してください。", saveSecond:"続けて2枚目を保存",
+    stIdle:"レポートを読み込むと、すぐ下に図解ができあがります。",
+    stShowing:(p,n)=>`${p}（投稿${n}件）のレポートを表示中`, stSample:"サンプルを表示中。自分のレポートを読み込むと置き換わります。",
+    stTapPaste:"ボタンの近くに出た「ペースト」をタップすると読み込みます。", stClipEmpty:"クリップボードが空でした。Under the Hoodのレポートをコピーしてからもう一度押してください。",
+    stNoClip:"この環境ではボタンから直接読み込めません。すぐ下の欄をタップして選んだあと、もう一度タップか長押しして「ペースト」を選んでください。",
+    stFailed:"読み込みに失敗しました。正しいレポートを読み込むと図解ができあがります。",
+    errJson:"JSONとして読み取れませんでした。コピーした範囲の最初の { や最後の } が欠けていないか確認してください。",
+    errShape:"Under the Hoodのレポート形式ではないようです（postLabels / postCount が見つかりません）。",
+    sv1:"1枚目の保存を確認しています…", sv2:"2枚目の保存を確認しています…", svBoth:"2枚とも保存しました。",
+    svOne:i=>`${i}枚目を保存しました。`, svOnlyFirst:"1枚目だけ保存しました。2枚目はキャンセルされました。",
+    svNext:"1枚目を保存しました。続けてボタンを押すと2枚目を保存します。", svZip:"ZIPを保存しました。",
+    svCancel:"保存をキャンセルしました。", svFail:"この環境では保存できませんでした。画像を長押しして保存してください。",
+    svUnavailable:"この表示環境では保存ボタンが使えません。画像を長押しして保存してください。",
+    /* 画像の中身 */
+    period:(y,m)=>`${y}年${m}月分`, periodRange:(m1,d1,m2,d2)=>`${m1}/${d1}〜${m2}/${d2}`, periodUnknown:"期間不明",
+    sub:(p,n)=>`${p}・投稿 ${n}件`, source:r=>`出典：X Under the Hood（${r}）`, rangeSep:"〜",
+    p1Title:"表示制限レポート", p2Title:"内訳ときっかけ",
+    vShadow:"アカウント単位の制限あり", vShadowSub:"全投稿がフォロワー外に届きにくい状態",
+    vAcct:"アカウントに措置あり", vAcctSub:n=>`アカウントラベル ${n}件`,
+    vPosts:"アカウント単位の制限なし", vPostsSub:n=>`制限は一部の投稿だけ（最大${n}件）`,
+    vNone:"記録された制限はありません", vNoneSub:"すべての投稿が通常どおり届いていました",
+    glance:"ひと目でわかる状況", note1:"「判定不可」は、このレポートに記録されない項目です。", note2:"過去1か月分の記録で、いまの状態とは限りません。",
+    tiles:{
+      followers:["フォロワーのTL","フォローしている人のタイムライン"], nonfollow:["フォロワー外のおすすめ","「おすすめ」タブなど"],
+      search:["検索・サジェスト","このレポートでは分からない"], searchHit:"検索結果に出にくい", reply:["リプライ欄","このレポートでは分からない"],
+      shadow:["シャドウバン","アカウント単位のおすすめ除外"], warning:["センシティブ判定","ワンクッション表示"],
+      age:["年齢制限","未成年・ログアウト中に非表示"], profile:["プロフィール限定","本人のプロフィールでのみ表示"],
+      hidden:["非表示・審査中","誰にも表示されない"], lock:["ロック・本人確認","読み取り専用・パスワード再設定"],
+      legal:["国別の差し止め","法的な理由で特定の国だけ非表示"], legalWhere:c=>`対象の国：${c}`,
+      copyright:["著作権の申し立て","権利者の申し立てで非表示"]
+    },
+    pAllExcludedDays:d=>`全投稿（${d}日間）`, pYesDays:d=>`あり（${d}日間）`, vShadowSubDays:(d,p)=>`期間${p}日のうち${d}日間、全投稿がフォロワー外に届きにくい状態`,
+    pVisible:"表示される", pHidden:n=>`一部${n}件 非表示`, pExcluded:n=>`一部${n}件 除外`, pAllExcluded:"全投稿で除外",
+    pNa:"判定不可", pYes:"あり", pNo:"なし", pCount:n=>`${n}件`, pAcct:"アカウント全体",
+    breakdown:"投稿の内訳", noLimit:"制限なし", orMore:"以上", unitMore:"件以上", unit:"件", limitedMax:"制限あり（最大）",
+    plusAcct:n=>`＋ アカウント全体のラベル ${n}件`,
+    trigTitle:"ラベルと判定のきっかけ", trigCap:"●＝きっかけになりうるもの（どの投稿がどれかは非公開）",
+    trig:{auto:"自動判定",report:"通報",legal:"法的要請",review:"審査",unknown:"不明"},
+    copyrightTag:"著作権", worldTag:"全世界", days:(d,p)=>p?`${d}/${p}日`:`${d}日`,
+    noLabels:"記録されたラベルはありません", all:"全体", aggAcct:n=>`アカウント全体のラベル ${n}種`,
+    omitted:n=>`ほか${n}種のラベル（件数の少ないもの）は省略`, tipsTitle:"気をつけること",
+    tips:{
+      nsfw:["成人向けの絵は、投稿時に自分でセンシティブ設定をつける","成人向け判定が重なると、アカウント単位の制限に進むことがある"],
+      gore:["流血・暴力表現は、投稿時にセンシティブ設定をつける"], spam:["同じ文面・タグ・リンクの連投を控える"],
+      url:["リンク先が安全なサイトか確認してから貼る"], abuse:["攻撃的・通報されやすい言い回しを避ける"],
+      hidden:["審査中の投稿は、結果が出るまで様子を見る"], lock:["パスワード変更や本人確認の案内があれば済ませる"],
+      dna:["審査待ちの可能性があるので、しばらく様子を見る"], other:["見慣れないラベルは、レポートの英語原文を確認する"],
+      none:["記録された制限はありません。いまの使い方で問題なし"],
+      legal:["差し止めは国ごとの法律による措置。心当たりがなければXのヘルプで確認する"],
+      copyright:["他人の画像・音楽・動画の無断使用を避ける"]
+    },
+    gen:{nsfw:"成人向け関連",gore:"暴力表現関連",spam:"スパム関連",abuse:"攻撃的な内容",copyright:"著作権関連",legal:"法的な措置",unknown:c=>"未知："+c}
+  },
+  en:{
+    lead:"Turn X's Under the Hood report into two images ready to post on X. Your data never leaves this device.",
+    getLead:"Get your report:", getLink:"X's Under the Hood page",
+    load:"Load report from clipboard", catcher:"If loading fails, tap here, then choose Paste", catcherAria:"Report paste field",
+    tabsAria:"Preview type", tabAll:"Both images", tabX:"As seen on X", cap1:"Image 1", cap2:"Image 2", saveOne:"Save this image",
+    alt1:"Image 1: At a glance", alt2:"Image 2: Breakdown and triggers", yourPost:"Your post",
+    note:"Two images at 1240×1754px (1:√2). Tap an image to enlarge it. If the save buttons don't work here, long-press an image to save it.",
+    dataTitle:"Saved reports", dataNote:"Reports that load correctly are saved in this browser automatically (each one only once). Tap one to rebuild the images from it.",
+    histEmpty:"No saved reports yet.", export:"Export", import:"Import", clearAll:"Clear all",
+    clearConfirm:"This deletes all saved reports and look settings from this browser. It can't be undone.", clearYes:"Delete", clearNo:"Cancel", clearTitle:"Clear everything?",
+    histPosts:n=>`${n} posts`, histSaved:d=>`saved ${d}`,
+    exported:"Exported.", imported:(a,b)=>`Imported ${a} report${a>1?"s":""}${b?` (${b} duplicate${b>1?"s":""} skipped)`:""}.`, importNone:(b)=>`No new reports${b?` (${b} duplicate${b>1?"s":""})`:""}.`,
+    importBad:"Couldn't read that file. Choose a UtH2i export or an Under the Hood JSON.", cleared:"Everything was cleared.",
+    saveFull:"Browser storage is full, so this report wasn't added to the history.",
+    txTitle:"Text for your post", txNote:"The post text and image descriptions (ALT) for X. After adding the images, paste each ALT into \"Add description\". It helps people who use screen readers.",
+    txPost:"Post", txAlt1:"Image 1 ALT", txAlt2:"Image 2 ALT", copy:"Copy", copied:"Copied",
+    cntPost:n=>`${n}/280 (X count)`, cntAlt:n=>`${n}/1000`,
+        lbClose:"Close", lbAria:"Enlarged image", lbHint:"Swipe left or right to switch", lbGo:i=>`Show image ${i}`,
+    optStyle:"Style", optMode:"Background", optSort:"Order", zip:"Save both as ZIP (for the Files app)", look:"Look",
+    styles:{standard:"Standard",pop:"Pop",minimal:"Minimal"},
+    modes:{light:"Default",dim:"Dim",black:"Lights out"}, sorts:{type:"By type",level:"Needs attention first"},
+    saveBoth:"Save both images", share:"Share images", postX:"Post on X",
+    svShared:"Shared.", svShareFail:"Couldn't share. Long-press an image to save it.", saveSecond:"Save image 2",
+    stIdle:"Load a report and the images appear right below.",
+    stShowing:(p,n)=>`Showing the report for ${p} (${n} posts)`, stSample:"Showing a sample. Load your own report to replace it.",
+    stTapPaste:"Tap the \"Paste\" bubble that appeared near the button to load it.", stClipEmpty:"The clipboard was empty. Copy your Under the Hood report and try again.",
+    stNoClip:"This page can't read the clipboard directly. Tap the field below to select it, then tap or long-press it again and choose Paste.",
+    stFailed:"Loading failed. Load a valid report to create the images.",
+    errJson:"This isn't valid JSON. Check that the copied text includes the first { and the last }.",
+    errShape:"This doesn't look like an Under the Hood report (no postLabels or postCount found).",
+    sv1:"Confirming image 1…", sv2:"Confirming image 2…", svBoth:"Both images saved.",
+    svOne:i=>`Image ${i} saved.`, svOnlyFirst:"Image 1 saved. Image 2 was cancelled.",
+    svNext:"Image 1 saved. Tap the button again to save image 2.", svZip:"ZIP saved.",
+    svCancel:"Save cancelled.", svFail:"Saving isn't available here. Long-press an image to save it.",
+    svUnavailable:"Save buttons aren't available in this view. Long-press an image to save it.",
+    period:(y,m)=>`${MONTHS[m-1]} ${y}`, periodRange:(m1,d1,m2,d2)=>`${MON[m1-1]} ${d1} – ${MON[m2-1]} ${d2}`, periodUnknown:"Unknown period",
+    sub:(p,n)=>`${p} · ${n} posts`, source:r=>`Source: X Under the Hood (${r})`, rangeSep:" – ",
+    p1Title:"Visibility Report", p2Title:"Breakdown & Triggers",
+    vShadow:"Account-wide limit", vShadowSub:"All posts reach fewer non-followers",
+    vAcct:"Action on your account", vAcctSub:n=>`${n} account label${n>1?"s":""}`,
+    vPosts:"No account-wide limits", vPostsSub:n=>`Only some posts limited (up to ${n})`,
+    vNone:"No limits recorded", vNoneSub:"All posts were delivered normally",
+    glance:"At a glance", note1:"\"Not covered\" items are not recorded in this report.", note2:"Covers the past month and may not match your current status.",
+    tiles:{
+      followers:["Followers' timeline","Timelines of people who follow you"], nonfollow:["Non-follower reach","For You and other recommendations"],
+      search:["Search & suggestions","Not covered by this report"], searchHit:"Harder to find in search", reply:["Replies","Not covered by this report"],
+      shadow:["Shadowban","Account-wide recommendation block"], warning:["Sensitive content","Shown behind a warning"],
+      age:["Age restriction","Hidden from minors and logged-out users"], profile:["Profile only","Visible only on your profile"],
+      hidden:["Hidden / in review","Not shown to anyone"], lock:["Lock / verification","Read-only or password reset"],
+      legal:["Country withholding","Hidden in some countries for legal reasons"], legalWhere:c=>`Countries: ${c}`,
+      copyright:["Copyright claims","Hidden after a rights holder's claim"]
+    },
+    pAllExcludedDays:d=>`All posts (${d} days)`, pYesDays:d=>`Yes (${d} days)`, vShadowSubDays:(d,p)=>`For ${d} of ${p} days, all posts reached fewer non-followers`,
+    pVisible:"Visible", pHidden:n=>`${n} hidden`, pExcluded:n=>`${n} excluded`, pAllExcluded:"All posts excluded",
+    pNa:"Not covered", pYes:"Yes", pNo:"None", pCount:n=>`${n} post${n>1?"s":""}`, pAcct:"Account-wide",
+    breakdown:"Post breakdown", noLimit:"No limits", orMore:"or more", unitMore:"posts or more", unit:"posts", limitedMax:"Limited (at most)",
+    plusAcct:n=>`+ ${n} account-wide label${n>1?"s":""}`,
+    trigTitle:"Labels & triggers", trigCap:"● = possible trigger (which post got which is not disclosed)",
+    trig:{auto:"Auto",report:"Report",legal:"Legal",review:"Review",unknown:"Unknown"},
+    copyrightTag:"copyright", worldTag:"worldwide", days:(d,p)=>p?`${d}/${p} days`:`${d} days`,
+    noLabels:"No labels recorded", all:"All", aggAcct:n=>`${n} account-wide labels`,
+    omitted:n=>`${n} more label${n>1?"s":""} with fewer posts omitted`, tipsTitle:"What to watch",
+    tips:{
+      nsfw:["Mark adult artwork as sensitive when you post it","Repeated adult flags can lead to account-wide limits"],
+      gore:["Mark gore or violence as sensitive when you post it"], spam:["Avoid repeating the same text, tags, or links"],
+      url:["Check that links go to safe sites before posting"], abuse:["Avoid hostile wording that invites reports"],
+      hidden:["Wait for posts in review to be decided"], lock:["Finish any password reset or verification X asks for"],
+      dna:["Your account may be under review; give it some time"], other:["Check the original text for unfamiliar labels"],
+      none:["No limits recorded. Keep doing what you're doing"],
+      legal:["Withholding follows each country's law; check X Help if it seems wrong"],
+      copyright:["Avoid using others' images, music, or video without permission"]
+    },
+    gen:{nsfw:"Adult-related",gore:"Violence-related",spam:"Spam-related",abuse:"Hostile content",copyright:"Copyright-related",legal:"Legal action",unknown:c=>"Unknown: "+c}
+  }
+};
+const t = (k,...a) => { const v = L[lang][k] ?? L.ja[k]; return typeof v==="function" ? v(...a) : v; };
+
+/* ================= ラベル辞書 =================
+   公式ソース（xai-org/x-algorithm の under-the-hood/strato/lib/underTheHoodLabels.strato）に準拠。
+   trig は公式の about 文から読み取ったきっかけ。eff は公式の effect 文から読み取った影響。 */
+const P = (ja,en,sev,eff,trig,cat)=>({ja,en,sev,eff,trig,cat});
+const POST_DICT = {
+  NSFWHIGHRECALL:P("成人向け（疑いあり）","Adult (possible)","warn",["nonFollower","age"],["auto"],"nsfw"),
+  NSFWHIGHPRECISION:P("成人向け（確度高）","Adult (likely)","bad",["warning","nonFollower","age"],["auto","report"],"nsfw"),
+  NSFWTEXT:P("成人向けの文章","Adult text","warn",["nonFollower","age"],["auto"],"nsfw"),
+  NSFWCARDIMAGE:P("成人向けのリンク画像","Adult link preview","bad",["warning","nonFollower","age"],["auto"],"nsfw"),
+  GOREANDVIOLENCEHIGHPRECISION:P("暴力・流血表現","Gore & violence","bad",["warning","nonFollower","age"],["auto","report"],"gore"),
+  SPAMHIGHRECALL:P("スパムの疑い","Possible spam","warn",["nonFollower"],["auto"],"spam"),
+  SPAM:P("スパム","Spam","bad",["hidden","followersTL","nonFollower"],["auto","report"],"spam"),
+  MALICIOUSURL:P("危険なリンク","Harmful link","warn",["nonFollower"],["auto"],"url"),
+  BRAZILELECTIONLEGAL:P("ブラジル選挙法","Brazil election law","warn",["withheld"],["auto"],"legal"),
+  DONOTAMPLIFY:P("危険なリンク（旧）","Harmful link (legacy)","warn",["nonFollower"],["auto"],"url"),
+  PDNA:P("規約違反の疑い（審査中）","Possible violation (in review)","bad",["hidden","followersTL","nonFollower"],["auto"],"hidden"),
+  BOUNCE:P("規約違反（削除待ち）","Violation (pending deletion)","bad",["hidden","followersTL","nonFollower"],["auto","report"],"hidden"),
+  FOREMERGENCYUSEONLY:P("緊急措置","Emergency measure","bad",["warning","followersTL","nonFollower"],["unknown"],"other"),
+  FOSNRABUSE:P("嫌がらせ","Abuse & harassment","bad",["profileOnly","followersTL","nonFollower"],["report"],"abuse"),
+  FOSNRHATEFULCONDUCT:P("ヘイト行為","Hateful conduct","bad",["profileOnly","followersTL","nonFollower"],["auto","report"],"abuse"),
+  FOSNRVIOLENTSPEECH:P("暴力的な発言","Violent speech","bad",["profileOnly","followersTL","nonFollower"],["report"],"abuse"),
+  FOSNRCIVICINTEGRITY:P("選挙・市民活動の妨害","Civic integrity","bad",["profileOnly","followersTL","nonFollower"],["report"],"abuse"),
+  FOSNRABUSEINSULTS:P("侮辱的な発言","Insults","warn",["nonFollower"],["auto","report"],"abuse"),
+  NSFWADMIN:P("成人・暴力向けアカウントの投稿","Post from an adult/violent account","bad",["warning","nonFollower","age"],["report"],"nsfw"),
+  DMCA:P("著作権侵害（DMCA）","Copyright (DMCA)","bad",["hidden","followersTL","nonFollower","copyright"],["report"],"copyright"),
+  ISDMCA:P("著作権（メディア非表示）","Copyright (media removed)","warn",["nonFollower","copyright"],["report"],"copyright")
+};
+POST_DICT.NSFWADMINSTAMPED = POST_DICT.NSFWADMIN;
+const ACCT_DICT = {
+  READONLY:P("読み取り専用ロック","Read-only lock","bad",["shadow","lock"],["unknown"],"lock"),
+  COMPROMISED:P("乗っ取り","Compromised","bad",["shadow","lock"],["auto","report"],"lock"),
+  SPAMHIGHRECALL:P("スパムの疑い","Possible spam account","bad",["shadow"],["auto"],"spam"),
+  NSFWHIGHRECALL:P("成人向けアカウント（疑い）","Adult account (possible)","bad",["shadow"],["auto"],"nsfw"),
+  NSFWHIGHPRECISION:P("成人向けアカウント","Adult account","bad",["shadow"],["auto"],"nsfw"),
+  NSFWAVATARIMAGE:P("アイコン画像が成人向け","Adult profile photo","bad",["shadow"],["auto"],"nsfw"),
+  NSFWNEARPERFECT:P("成人向けアカウント（強）","Adult account (strong)","bad",["shadow"],["auto"],"nsfw"),
+  NSFWBANNERIMAGE:P("ヘッダー画像が成人向け","Adult header image","bad",["shadow"],["auto"],"nsfw"),
+  NSFWADMIN:P("成人・暴力向けアカウント","Adult or violent account","bad",["shadow","warning","age"],["report"],"nsfw"),
+  IMPERSONATIONHIGHPRECISION:P("なりすまし","Impersonation","bad",["shadow"],["auto"],"lock"),
+  ABUSIVEHIGHRECALL:P("不正利用の疑い","Possible misuse","bad",["shadow","lock"],["auto"],"lock"),
+  DONOTAMPLIFY:P("拡散抑制（審査待ち）","Do not amplify (in review)","bad",["shadow"],["auto"],"dna")
+};
+/* 法的な差し止め：ラベル名は「LegalRequest(JP, DE)」のように国コードが付く。XX＝全世界、XY＝著作権 */
+const TAKEDOWN = {
+  LegalRequest:{ja:"法的要請による差し止め",en:"Withheld (legal demand)",trig:["legal"]},
+  BystanderReport:{ja:"現地法違反による差し止め",en:"Withheld (local law)",trig:["report"]},
+  UnspecifiedReason:{ja:"差し止め（理由の区分なし）",en:"Withheld (unspecified)",trig:["legal","report"]}
+};
+const POST_RE = {
+  nonFollower:/non-?followers|recommendations/i, warning:/content warning|interstitial|custom notice/i,
+  age:/underage|stated age|logged.?out|protected audience/i, profileOnly:/author'?s profile|only on .{0,20}profile/i,
+  hidden:/not shown|removed|hidden from (all|everyone)/i, followersTL:/home timeline/i, search:/search/i
+};
+const ACCT_RE = { shadow:/non-?followers|recommendations|distribution/i, lock:/read.?only|security challenge|password/i, withheld:/not shown on X in /i,
+  warning:/content warning|interstitial/i, age:/underage|stated age|logged.?out|protected audience/i };
+const TRIG_RE = { auto:/automat|systems?\b|classif|model|grok/i, report:/report/i, legal:/legal demand/i, review:/review/i };
+const TRIG_ICON = { auto:"robot", report:"flag", legal:"gavel", review:"reviewer", unknown:"question" };
+
+const norm = s => String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+const num = v => { const n = parseFloat(String(v ?? "").replace(/[^0-9.\-]/g,"")); return isNaN(n) ? null : n; };
+const textOf = x => [x.about,x.description,x.effect].filter(Boolean).join(" ");
+
+function readLabel(x, level){
+  const code = String(x.label||x.name||x.type||"");
+  const k = norm(code);
+  const base = { code, level, posts: level==="post" ? (num(x.posts)||0) : 0, pct: x.percentageOfPosts ? String(x.percentageOfPosts) : "",
+    days: num(x.days), daysInPeriod: num(x.daysInPeriod) };
+  /* 法的な差し止め */
+  const tm = /^\s*(LegalRequest|BystanderReport|UnspecifiedReason)\s*(?:\(([^)]*)\))?\s*$/i.exec(code);
+  if (tm){
+    const kind = Object.keys(TAKEDOWN).find(n=>n.toLowerCase()===tm[1].toLowerCase());
+    const codes = (tm[2]||"").split(/[,\s]+/).map(c=>c.trim().toUpperCase()).filter(Boolean);
+    const world = codes.includes("XX"), copy = codes.includes("XY");
+    let eff;
+    if (level==="acct") eff = new Set([copy?"copyright":"withheld"].concat(world||copy?["shadow"]:[]));
+    else eff = new Set(copy ? ["hidden","followersTL","nonFollower","copyright"] : world ? ["hidden","followersTL","nonFollower","withheld"] : ["withheld"]);
+    return {...base, takedown:kind, countries: codes.filter(c=>c!=="XX"&&c!=="XY"), world, copy,
+      eff, trig:new Set(copy?["report"]:TAKEDOWN[kind].trig), cat: copy?"copyright":"legal", sev:"bad"};
+  }
+  const d = (level==="acct" ? ACCT_DICT : POST_DICT)[k];
+  const eff = new Set(d ? d.eff : []);
+  if (!d){
+    const re = level==="acct" ? ACCT_RE : POST_RE;
+    for (const key in re) if (re[key].test(x.effect||"")) eff.add(key);
+    if (level==="post" && /not shown on X in /i.test(x.effect||"")) { eff.delete("hidden"); eff.add("withheld"); }
+    if (level==="post" && (eff.has("hidden")||eff.has("profileOnly"))) eff.add("followersTL");
+  }
+  const trig = new Set(d ? d.trig : []);
+  if (!d) for (const key in TRIG_RE) if (TRIG_RE[key].test(x.about||x.description||"")) trig.add(key);
+  if (!trig.size) trig.add("unknown");
+  let cat = d ? d.cat : "other", gen = null;
+  if (!d){
+    if (/NSFW|ADULT|SEXUAL/.test(k)) {gen="nsfw";cat="nsfw";}
+    else if (/GORE|VIOLEN/.test(k)) {gen="gore";cat="gore";}
+    else if (/SPAM/.test(k)) {gen="spam";cat="spam";}
+    else if (/ABUS|HATE|INSULT|HARASS/.test(k)) {gen="abuse";cat="abuse";}
+    else if (/DMCA|COPYRIGHT/.test(k)) {gen="copyright";cat="copyright";}
+    else if (/LEGAL|LAW|WITHHELD/.test(k)) {gen="legal";cat="legal";}
+    else gen="unknown";
+  }
+  return {...base, d, gen, cat, eff, trig, sev: d && d.sev ? d.sev : (level==="acct"?"bad":"warn")};
+}
+function labelName(l){
+  if (l.agg) return t("aggAcct", l.agg);
+  if (l.takedown){
+    const nm = TAKEDOWN[l.takedown][lang];
+    const where = l.copy ? t("copyrightTag") : l.world ? t("worldTag") : l.countries.join(", ");
+    return where ? (lang==="en" ? `${nm} – ${where}` : `${nm}（${where}）`) : nm;
+  }
+  if (l.d) return l.d[lang] || l.d.ja;
+  const g = L[lang].gen[l.gen];
+  return typeof g==="function" ? g(l.code) : g;
+}
+function toModel(d){
+  const posts = (Array.isArray(d.postLabels)?d.postLabels:[]).map(x=>readLabel(x,"post"));
+  const accts = (Array.isArray(d.accountLabels)?d.accountLabels:[]).map(x=>readLabel(typeof x==="string"?{label:x}:x,"acct"));
+  const sum = posts.reduce((s,l)=>s+l.posts,0);
+  const total = num(d.postCount) ?? sum;
+  const p = d.period||{};
+  return {posts, accts, sum, total, normal:Math.max(total-sum,0),
+    acctCount: Math.max(num(d.totalAccountLabels) ?? 0, accts.length), start:p.startDate, end:p.endDate, tz:p.timezone||"UTC"};
+}
+function periodText(m){
+  const m1=/^(\d{4})-(\d{2})-(\d{2})/.exec(m.start||""), m2=/^(\d{4})-(\d{2})-(\d{2})/.exec(m.end||"");
+  if(!m1||!m2) return t("periodUnknown");
+  const last = new Date(Date.UTC(+m2[1], +m2[2], 0)).getUTCDate();
+  if (m1[1]===m2[1] && m1[2]===m2[2] && m1[3]==="01" && +m2[3]===last) return t("period", +m1[1], +m1[2]);
+  return t("periodRange", +m1[2], +m1[3], +m2[2], +m2[3]);
+}
+const fmtD = s => s ? String(s).replace(/-/g,"/") : "?";
+const rangeText = m => `${fmtD(m.start)}${t("rangeSep")}${fmtD(m.end)} ${m.tz}`;
+
+/* ================= 雰囲気とモード ================= */
+const MODES = {
+  light:{bg:"#FFFFFF",fg:"#0F1419",muted:"#536471",line:"#E1E8ED",card:"#F4F7F9",dark:false},
+  dim:  {bg:"#15202B",fg:"#F7F9F9",muted:"#8B98A5",line:"#38444D",card:"#1E2732",dark:true},
+  black:{bg:"#000000",fg:"#E7E9EA",muted:"#7A7F84",line:"#2F3336",card:"#16181C",dark:true}
+};
+const STYLES = {
+  standard:{
+    font:{head:{fam:'"Zen Kaku Gothic New"',x:900,b:700,r:500}, body:{fam:'"Zen Kaku Gothic New"',x:900,b:700,r:500}, num:{fam:'"Outfit"',x:800,b:800,r:600}},
+    R:24, tile:"soft", donutT:96,
+    sem:{light:{ok:"#0A9B6A",warn:"#D98400",bad:"#E0245E",na:"#8A97A3"}, dark:{ok:"#2FD08F",warn:"#FFB547",bad:"#FF5C7A",na:"#6E7B87"}},
+    extra:["#7B61FF","#FF7A3D","#2E9BFF","#00A3A3","#C2410C","#A855F7","#64748B"]},
+  pop:{
+    font:{head:{fam:'"M PLUS Rounded 1c"',x:900,b:800,r:500}, body:{fam:'"M PLUS Rounded 1c"',x:900,b:800,r:500}, num:{fam:'"Fredoka"',x:700,b:700,r:600}},
+    R:30, tile:"pop", donutT:112,
+    sem:{light:{ok:"#00B86B",warn:"#FFB000",bad:"#FF3B6B",na:"#A0A8B0"}, dark:{ok:"#22E08A",warn:"#FFC233",bad:"#FF5C86",na:"#7C858E"}},
+    card:{light:"#F3F0FF",dim:"#24304A",black:"#1A1626"},
+    extra:["#8B5CFF","#FF8A1F","#1FB6FF","#00C2B2","#FF6FD8","#7A5CFF","#94A3B8"], deco:["#FF3B6B","#FFB000","#1FB6FF","#8B5CFF"]},
+  minimal:{
+    font:{head:{fam:'"IBM Plex Sans JP"',x:700,b:600,r:400}, body:{fam:'"IBM Plex Sans JP"',x:700,b:600,r:400}, num:{fam:'"IBM Plex Mono"',x:600,b:600,r:500}},
+    R:0, tile:"line", donutT:30,
+    sem:{light:{ok:"#1F8A5B",warn:"#B7791F",bad:"#C53030",na:"#9AA3AB"}, dark:{ok:"#5FCB98",warn:"#E3B05A",bad:"#F07878",na:"#6B747C"}},
+    extra:["#5B6CC8","#B5652E","#2F8FB5","#3F8F7F","#8A4FB0","#7A7F87","#B04A6A"]}
+};
+const FB = '"Hiragino Sans","Noto Sans JP",sans-serif';
+const W = 1240, H = 1754, M = 104;
+let ST = STYLES.standard, TH = null;
+function buildTheme(styleKey, modeKey){
+  ST = STYLES[styleKey];
+  const md = MODES[modeKey];
+  TH = {...md, ...ST.sem[md.dark?"dark":"light"], card:(ST.card && ST.card[modeKey]) || md.card};
+}
+
+/* ================= 描画ヘルパー ================= */
+let FONTREQ = {};
+function setF(ctx,o){ const fs=ST.font[o.r||"body"]; const w=fs[o.w||"b"]; ctx.font=`${w} ${o.s}px ${fs.fam}, ${FB}`; return {w,fam:fs.fam}; }
+function meas(ctx,s,o){ setF(ctx,o); return ctx.measureText(String(s)).width; }
+function fit(ctx,s,max){ if(ctx.measureText(s).width<=max) return s; while(s.length>1 && ctx.measureText(s+"…").width>max) s=s.slice(0,-1); return s+"…"; }
+function T(ctx,str,x,y,o){
+  let s=String(str); const f=setF(ctx,o);
+  ctx.fillStyle=o.c||TH.fg; ctx.textAlign=o.a||"left"; ctx.textBaseline="alphabetic";
+  if(o.max) s=fit(ctx,s,o.max);
+  ctx.fillText(s,x,y);
+  const k=f.w+"|"+f.fam; FONTREQ[k]=(FONTREQ[k]||"")+s;
+  return ctx.measureText(s).width;
+}
+function runs(ctx,parts,x,y,align){
+  let total=0;
+  parts.forEach(p=>{ p._w=meas(ctx,p.t,p); total+=p._w+(p.gap||0); });
+  let cx = align==="center" ? x-total/2 : align==="right" ? x-total : x;
+  parts.forEach(p=>{ T(ctx,p.t,cx,y,{...p,a:"left"}); cx+=p._w+(p.gap||0); });
+  return total;
+}
+function rr(ctx,x,y,w,h,r){ r=Math.min(r,h/2,w/2); ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,w,h,r); else { ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); } }
+function alpha(ctx,a,fn){ ctx.save(); ctx.globalAlpha=a; fn(); ctx.restore(); }
+function hline(ctx,y){ ctx.fillStyle = ST.tile==="line" ? TH.fg : TH.line; ctx.fillRect(M,y,W-2*M,ST.tile==="line"?1.5:2); }
+
+function box(ctx,x,y,w,h,opt={}){
+  const R = opt.r ?? ST.R, tint = opt.tint;
+  if (ST.tile==="pop"){
+    ctx.fillStyle=TH.fg; rr(ctx,x+7,y+7,w,h,R); ctx.fill();
+    ctx.fillStyle=TH.bg; rr(ctx,x,y,w,h,R); ctx.fill();
+    if (tint) alpha(ctx,.28,()=>{ ctx.fillStyle=tint; rr(ctx,x,y,w,h,R); ctx.fill(); });
+    else { ctx.fillStyle=TH.card; rr(ctx,x,y,w,h,R); ctx.fill(); }
+    ctx.strokeStyle=TH.fg; ctx.lineWidth=4; rr(ctx,x,y,w,h,R); ctx.stroke();
+  } else if (ST.tile==="line"){
+    ctx.strokeStyle = tint || TH.line; ctx.lineWidth = tint ? 3 : 2; ctx.strokeRect(x+1,y+1,w-2,h-2);
+  } else {
+    if (tint) alpha(ctx, ST.tile==="natural"?.16:.12, ()=>{ ctx.fillStyle=tint; rr(ctx,x,y,w,h,R); ctx.fill(); });
+    else { ctx.fillStyle=TH.card; rr(ctx,x,y,w,h,R); ctx.fill(); }
+  }
+}
+
+/* ---- アイコン（48×48の座標で描く） ---- */
+const ICONS = {
+  followers(c){ c.beginPath(); c.arc(-7,-7,6.5,0,7); c.stroke(); c.beginPath(); c.arc(-7,16,11,Math.PI,0); c.stroke();
+    c.beginPath(); c.arc(10,-5,5.5,0,7); c.stroke(); c.beginPath(); c.arc(11,16,9,Math.PI*1.1,0); c.stroke(); },
+  globe(c){ c.beginPath(); c.arc(0,0,17,0,7); c.stroke(); c.beginPath(); c.ellipse(0,0,7.5,17,0,0,7); c.stroke(); c.beginPath(); c.moveTo(-17,0); c.lineTo(17,0); c.stroke(); },
+  search(c){ c.beginPath(); c.arc(-4,-4,11,0,7); c.stroke(); c.beginPath(); c.moveTo(4.5,4.5); c.lineTo(15,15); c.stroke(); },
+  reply(c){ rr(c,-17,-15,34,23,7); c.stroke(); c.beginPath(); c.moveTo(-6,8); c.lineTo(-10,17); c.lineTo(2,8); c.stroke(); },
+  ghost(c,col){ c.beginPath(); c.moveTo(-14,16); c.lineTo(-14,-2); c.arc(0,-2,14,Math.PI,0); c.lineTo(14,16); c.lineTo(9,11.5); c.lineTo(4.5,16); c.lineTo(0,11.5); c.lineTo(-4.5,16); c.lineTo(-9,11.5); c.closePath(); c.stroke();
+    c.fillStyle=col; c.beginPath(); c.arc(-5,-3,2.6,0,7); c.arc(5,-3,2.6,0,7); c.fill(); },
+  warning(c,col){ c.beginPath(); c.moveTo(0,-17); c.lineTo(18,15); c.lineTo(-18,15); c.closePath(); c.stroke(); c.beginPath(); c.moveTo(0,-5); c.lineTo(0,4); c.stroke(); c.fillStyle=col; c.beginPath(); c.arc(0,9.5,2.4,0,7); c.fill(); },
+  age(c,col){ rr(c,-18,-14,36,28,6); c.stroke(); c.fillStyle=col; c.font=`700 17px ${ST.font.num.fam}, ${FB}`; c.textAlign="center"; c.textBaseline="middle"; c.fillText("18",0,1); },
+  profile(c){ rr(c,-18,-14,36,28,6); c.stroke(); c.beginPath(); c.arc(-7,-3,4.5,0,7); c.stroke(); c.beginPath(); c.arc(-7,11,7,Math.PI,0); c.stroke();
+    c.beginPath(); c.moveTo(3,-4); c.lineTo(12,-4); c.moveTo(3,3); c.lineTo(10,3); c.stroke(); },
+  eyeoff(c){ c.beginPath(); c.moveTo(-18,0); c.quadraticCurveTo(0,-17,18,0); c.quadraticCurveTo(0,17,-18,0); c.stroke(); c.beginPath(); c.arc(0,0,5,0,7); c.stroke(); c.beginPath(); c.moveTo(-14,-14); c.lineTo(14,14); c.stroke(); },
+  lock(c,col){ rr(c,-14,-3,28,20,5); c.stroke(); c.beginPath(); c.moveTo(-8,-3); c.lineTo(-8,-8); c.arc(0,-8,8,Math.PI,0); c.lineTo(8,-3); c.stroke(); c.fillStyle=col; c.beginPath(); c.arc(0,7,2.6,0,7); c.fill(); },
+  robot(c,col){ rr(c,-13,-8,26,21,6); c.stroke(); c.beginPath(); c.moveTo(0,-8); c.lineTo(0,-14); c.stroke(); c.fillStyle=col; c.beginPath(); c.arc(0,-16,2.6,0,7); c.arc(-5,2,2.6,0,7); c.arc(5,2,2.6,0,7); c.fill(); },
+  flag(c){ c.beginPath(); c.moveTo(-10,17); c.lineTo(-10,-16); c.stroke(); c.beginPath(); c.moveTo(-10,-16); c.lineTo(13,-10); c.lineTo(-10,-3); c.stroke(); },
+  reviewer(c){ c.beginPath(); c.arc(-5,-8,6,0,7); c.stroke(); c.beginPath(); c.arc(-5,13,11,Math.PI,0); c.stroke(); c.beginPath(); c.moveTo(6,4); c.lineTo(10,9); c.lineTo(18,-1); c.stroke(); },
+  stack(c){ rr(c,-14,-15,28,7,3.5); c.stroke(); rr(c,-14,-3.5,28,7,3.5); c.stroke(); rr(c,-14,8,28,7,3.5); c.stroke(); },
+  question(c,col){ c.beginPath(); c.arc(0,-6,8.5,Math.PI,Math.PI*2.3); c.lineTo(0,5); c.stroke(); c.fillStyle=col; c.beginPath(); c.arc(0,13.5,3.2,0,7); c.fill(); },
+  gavel(c){ c.save(); c.rotate(-Math.PI/4); rr(c,-11,-14,22,10,3); c.stroke(); c.beginPath(); c.moveTo(0,-4); c.lineTo(0,14); c.stroke(); c.restore();
+    c.beginPath(); c.moveTo(-6,17); c.lineTo(16,17); c.stroke(); },
+  copyright(c){ c.beginPath(); c.arc(0,0,17,0,7); c.stroke(); c.beginPath(); c.arc(0,0,8,Math.PI*0.25,Math.PI*1.75); c.stroke(); },
+  check(c){ c.beginPath(); c.moveTo(-15,1); c.lineTo(-5,11); c.lineTo(15,-10); c.stroke(); },
+  bang(c,col){ c.beginPath(); c.moveTo(0,-15); c.lineTo(0,4); c.stroke(); c.fillStyle=col; c.beginPath(); c.arc(0,13,3.2,0,7); c.fill(); }
+};
+function drawIcon(ctx,name,cx,cy,size,col,lw=3.4){
+  ctx.save(); ctx.translate(cx,cy); const k=size/48; ctx.scale(k,k);
+  ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=lw; ctx.lineCap="round"; ctx.lineJoin="round";
+  ICONS[name](ctx,col); ctx.restore();
+}
+function badge(ctx,name,cx,cy,r,col){
+  if (ST.tile==="pop"){
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+    ctx.strokeStyle=TH.fg; ctx.lineWidth=4; ctx.stroke();
+    drawIcon(ctx,name,cx,cy,r*1.2,"#15151A",3.8);
+  } else if (ST.tile==="line"){
+    drawIcon(ctx,name,cx,cy,r*1.35,TH.fg,2.6);
+  } else if (ST.tile==="natural"){
+    alpha(ctx,.2,()=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.ellipse(cx,cy,r*1.04,r*.94,-.35,0,7); ctx.fill(); });
+    drawIcon(ctx,name,cx,cy,r*1.2,col,3.2);
+  } else {
+    alpha(ctx,.14,()=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill(); });
+    drawIcon(ctx,name,cx,cy,r*1.2,col,3.4);
+  }
+}
+/* 状態ラベル：塗りの丸＋太いベクター記号 */
+function pill(ctx,x,y,text,kind){
+  const c = TH[kind]; const o={s:24,r:"body",w:"b"};
+  const tw = meas(ctx,text,o), h=42, d=28;
+  const glyph = kind==="ok"?"check":kind==="na"?"question":"bang";
+  const mark = (cx,cy,fill,ink)=>{ ctx.fillStyle=fill; ctx.beginPath(); ctx.arc(cx,cy,d/2,0,7); ctx.fill(); drawIcon(ctx,glyph,cx,cy,d*0.82,ink,6.2); };
+  if (ST.tile==="line"){
+    mark(x+d/2,y+h/2,c,TH.bg);
+    T(ctx,text,x+d+10,y+h/2+8.5,{...o,c: kind==="na"?TH.muted:TH.fg});
+    return d+10+tw;
+  }
+  const w = 7+d+9+tw+18;
+  if (ST.tile==="pop"){
+    ctx.fillStyle=TH.fg; rr(ctx,x+4,y+4,w,h,h/2); ctx.fill();
+    ctx.fillStyle = kind==="na" ? TH.bg : c; rr(ctx,x,y,w,h,h/2); ctx.fill();
+    ctx.strokeStyle=TH.fg; ctx.lineWidth=3; ctx.stroke();
+    const tc = kind==="na" ? TH.fg : (kind==="bad" ? "#FFFFFF" : "#15151A");
+    mark(x+7+d/2,y+h/2,"#15151A", kind==="na" ? "#FFFFFF" : c);
+    T(ctx,text,x+7+d+9,y+h/2+8.5,{...o,c:tc});
+  } else {
+    if (kind==="na"){ ctx.setLineDash([6,5]); ctx.strokeStyle=c; ctx.lineWidth=2; rr(ctx,x+1,y+1,w-2,h-2,h/2); ctx.stroke(); ctx.setLineDash([]); }
+    else alpha(ctx, ST.tile==="natural"?.2:.16, ()=>{ ctx.fillStyle=c; rr(ctx,x,y,w,h,h/2); ctx.fill(); });
+    const tc = kind==="na" ? TH.muted : c;
+    mark(x+7+d/2,y+h/2,c,TH.bg);
+    T(ctx,text,x+7+d+9,y+h/2+8.5,{...o,c:tc});
+  }
+  return w;
+}
+
+function header(ctx,m,title,page){
+  ctx.fillStyle=TH.bg; ctx.fillRect(0,0,W,H);
+  decorate(ctx);
+  T(ctx,"X UNDER THE HOOD",M,150,{s:26,r:"num",w:"r",c:TH.muted});
+  T(ctx,`${page} / 2`,W-M,150,{s:26,r:"num",w:"r",c:TH.muted,a:"right"});
+  const to={s:68,r:"head",w:"x"};
+  if (ST.tile==="pop"){ const tw=Math.min(meas(ctx,title,to),820); alpha(ctx,.55,()=>{ ctx.fillStyle=TH.warn; rr(ctx,M-6,212,tw+12,30,8); ctx.fill(); }); }
+  T(ctx,title,M,236,{...to,c:TH.fg,max:820});
+  T(ctx,t("sub",periodText(m),m.total),M,298,{s:32,r:"body",w:"r",c:TH.muted,max:820});
+  hline(ctx,346);
+}
+function decorate(ctx){
+  if (ST.tile==="pop"){
+    const d=ST.deco;
+    [[1060,262,44,d[1]],[1140,212,18,d[0]],[978,214,12,d[2]],[1150,312,10,d[3]]].forEach(([x,y,r,c])=>{
+      ctx.fillStyle=c; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); ctx.strokeStyle=TH.fg; ctx.lineWidth=3; ctx.stroke(); });
+  } else if (ST.tile==="natural"){
+    alpha(ctx,.22,()=>{ ctx.fillStyle=ST.deco[0]; ctx.beginPath(); ctx.ellipse(1080,250,70,30,-.6,0,7); ctx.fill(); });
+    alpha(ctx,.18,()=>{ ctx.fillStyle=ST.deco[1]; ctx.beginPath(); ctx.ellipse(1150,215,40,18,.5,0,7); ctx.fill(); });
+    alpha(ctx,.1,()=>{ ctx.fillStyle=ST.deco[0]; ctx.beginPath(); ctx.arc(1230,1760,170,0,7); ctx.fill(); });
+  }
+}
+function footer(ctx,m){ T(ctx,t("source",rangeText(m)),M,H-84,{s:22,r:"body",w:"r",c:TH.muted,max:W-2*M}); }
+function assignColors(m){
+  let b=false, w=false, e=0;
+  m.accts.forEach(l=>{ l._c=TH.bad; });
+  m.posts.forEach(l=>{
+    if (l.sev==="bad" && !b){ l._c=TH.bad; b=true; }
+    else if (l.sev==="warn" && !w){ l._c=TH.warn; w=true; }
+    else l._c = ST.extra[e++ % ST.extra.length];
+  });
+}
+
+/* ================= 1枚目：ひと目でわかる状況 ================= */
+function shadowDays(m){
+  const ls = m.accts.filter(l=>l.eff.has("shadow") && l.days);
+  if (!ls.length) return null;
+  return {days: Math.max(...ls.map(l=>l.days)), of: Math.max(...ls.map(l=>l.daysInPeriod||0)) || 0};
+}
+function statusTiles(m){
+  const cnt = k => Math.min(m.total, m.posts.filter(l=>l.eff.has(k)).reduce((s,l)=>s+l.posts,0));
+  const acct = k => m.accts.some(l=>l.eff.has(k));
+  const TL = L[lang].tiles;
+  const sd = shadowDays(m), part = sd && sd.days < sd.of;
+  const lvl = k => acct(k) ? ["bad",t("pAcct")] : cnt(k) ? ["warn", t("pCount",cnt(k))] : ["ok", t("pNo")];
+  const tile = (icon,key,st,cap) => ({icon,name:TL[key][0],cap:cap||TL[key][1],st});
+  return [
+    tile("followers","followers", cnt("followersTL") ? ["warn",t("pHidden",cnt("followersTL"))] : ["ok",t("pVisible")]),
+    tile("globe","nonfollow", acct("shadow") ? ["bad", part ? t("pAllExcludedDays",sd.days) : t("pAllExcluded")] : cnt("nonFollower") ? ["warn",t("pExcluded",cnt("nonFollower"))] : ["ok",t("pVisible")]),
+    cnt("search") ? tile("search","search",["warn",t("pCount",cnt("search"))],TL.searchHit) : tile("search","search",["na",t("pNa")]),
+    tile("reply","reply",["na",t("pNa")]),
+    tile("ghost","shadow", acct("shadow") ? ["bad", part ? t("pYesDays",sd.days) : t("pYes")] : ["ok",t("pNo")]),
+    tile("warning","warning", lvl("warning")),
+    tile("age","age", lvl("age")),
+    tile("profile","profile", cnt("profileOnly") ? ["warn",t("pCount",cnt("profileOnly"))] : ["ok",t("pNo")]),
+    tile("eyeoff","hidden", cnt("hidden") ? ["warn",t("pCount",cnt("hidden"))] : ["ok",t("pNo")]),
+    tile("lock","lock", acct("lock") ? ["bad",t("pYes")] : ["ok",t("pNo")]),
+    (()=>{ const cs=[...new Set([...m.posts,...m.accts].filter(l=>l.eff.has("withheld")).flatMap(l=>l.countries||[]))];
+      return tile("gavel","legal", lvl("withheld"), cs.length ? TL.legalWhere(cs.join(", ")) : null); })(),
+    tile("copyright","copyright", lvl("copyright"))
+  ];
+}
+function drawPage1(ctx,m){
+  header(ctx,m,t("p1Title"),1);
+  const shadow = m.accts.some(l=>l.eff.has("shadow"));
+  let kind="ok", main, sub;
+  const sd = shadowDays(m);
+  if (shadow){ kind="bad"; main=t("vShadow"); sub = sd && sd.days < sd.of ? t("vShadowSubDays",sd.days,sd.of) : t("vShadowSub"); }
+  else if (m.acctCount>0){ kind="bad"; main=t("vAcct"); sub=t("vAcctSub",m.acctCount); }
+  else if (m.posts.length){ main=t("vPosts"); sub=t("vPostsSub",m.sum); }
+  else { main=t("vNone"); sub=t("vNoneSub"); }
+  const vc = TH[kind];
+  box(ctx,M,380,W-2*M,136,{tint:vc});
+  if (ST.tile==="pop"){ badge(ctx, kind==="ok"?"check":"bang", M+80, 448, 40, vc); }
+  else { ctx.fillStyle=vc; ctx.beginPath(); ctx.arc(M+80,448,38,0,7); ctx.fill(); drawIcon(ctx, kind==="ok"?"check":"bang", M+80, 448, 54, TH.bg, 6); }
+  T(ctx,main,M+150,440,{s:48,r:"head",w:"x",c:TH.fg,max:W-2*M-184});
+  T(ctx,sub,M+150,490,{s:27,r:"body",w:"r",c:TH.muted,max:W-2*M-184});
+
+  T(ctx,t("glance"),M,578,{s:32,r:"head",w:"b",c:TH.fg});
+  let tiles = statusTiles(m);
+  if (sortKey==="level"){
+    const rank = {bad:0, warn:0, ok:1, na:2};
+    tiles = tiles.map((x,i)=>({x,i})).sort((a,b)=>rank[a.x.st[0]]-rank[b.x.st[0]] || a.i-b.i).map(o=>o.x);
+  }
+  const gap=16, colW=(W-2*M-gap)/2, th=136, ty0=606;
+  tiles.forEach((tl,i)=>{
+    const x = M + (i%2)*(colW+gap), y = ty0 + Math.floor(i/2)*(th+gap);
+    box(ctx,x,y,colW,th,{r:Math.min(ST.R,24)});
+    badge(ctx,tl.icon,x+60,y+th/2,34, tl.st[0]==="na" ? TH.na : TH[tl.st[0]]);
+    T(ctx,tl.name,x+114,y+44,{s:lang==="en"?27:29,r:"body",w:"b",c:TH.fg,max:colW-128});
+    T(ctx,tl.cap,x+114,y+74,{s:19,r:"body",w:"r",c:TH.muted,max:colW-128});
+    pill(ctx,x+114,y+84,tl.st[1],tl.st[0]);
+  });
+  const ny = ty0 + Math.ceil(tiles.length/2)*(th+gap) + 24;
+  T(ctx,t("note1"),M,ny,{s:22,r:"body",w:"r",c:TH.muted,max:W-2*M});
+  T(ctx,t("note2"),M,ny+36,{s:22,r:"body",w:"r",c:TH.muted,max:W-2*M});
+  footer(ctx,m);
+}
+
+/* ================= 2枚目：内訳ときっかけ ================= */
+function drawPage2(ctx,m){
+  header(ctx,m,t("p2Title"),2);
+  const all=[...m.accts, ...[...m.posts].sort((a,b)=>b.posts-a.posts)];
+
+  // A. ドーナツ＋大きな2つの数字
+  T(ctx,t("breakdown"),M,430,{s:32,r:"head",w:"b",c:TH.fg});
+  const cx=M+186, cy=650, R=186, thick=Math.round(ST.donutT*0.62), r=R-thick/2;
+  const tot=Math.max(m.total,1), labs=m.posts.filter(l=>l.posts>0), MIN=4*Math.PI/180;
+  const segs=labs.map(l=>({a:Math.max(l.posts/tot*Math.PI*2,MIN),c:l._c}));
+  const used=segs.reduce((s,x)=>s+x.a,0);
+  segs.unshift({a:Math.max(Math.PI*2-used,0),c:TH.ok});
+  const gap = segs.length>1 ? (ST.tile==="natural"?3:1.4)*Math.PI/180 : 0;
+  let a0=-Math.PI/2; ctx.lineWidth=thick; ctx.lineCap = ST.tile==="natural" && segs.length>1 ? "round" : "butt";
+  segs.forEach(s=>{ if(s.a<=0) return; ctx.strokeStyle=s.c; ctx.beginPath();
+    const g = ctx.lineCap==="round" ? gap+thick/r*0.5 : gap;
+    const st=a0+g/2, en=a0+s.a-g/2; if(en>st){ ctx.arc(cx,cy,r,st,en); ctx.stroke(); } else { ctx.lineCap="butt"; ctx.arc(cx,cy,r,a0,a0+s.a); ctx.stroke(); }
+    a0+=s.a; });
+  ctx.lineCap="butt";
+  if (ST.tile==="pop"){ ctx.strokeStyle=TH.fg; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.stroke(); ctx.beginPath(); ctx.arc(cx,cy,R-thick,0,7); ctx.stroke(); }
+  const pct = m.total ? Math.round(m.normal/m.total*1000)/10 : 100;
+  T(ctx,t("noLimit"),cx,cy-34,{s:24,r:"body",w:"b",c:TH.ok,a:"center",max:2*(R-thick)-20});
+  runs(ctx,[{t:pct,s:68,r:"num",w:"x",c:TH.fg,gap:2},{t:"%",s:30,r:"num",w:"x",c:TH.fg}],cx,cy+34,"center");
+  T(ctx,labs.length?t("orMore"):"",cx,cy+70,{s:22,r:"body",w:"b",c:TH.muted,a:"center"});
+
+  const lx=M+430;
+  const stat=(y,color,label,n,unit)=>{
+    ctx.fillStyle=color; rr(ctx,lx,y-22,24,24,ST.tile==="line"?0:7); ctx.fill();
+    T(ctx,label,lx+38,y,{s:26,r:"body",w:"b",c:TH.muted,max:W-M-lx-38});
+    runs(ctx,[{t:n,s:72,r:"num",w:"x",c:TH.fg,gap:10},{t:unit,s:26,r:"body",w:"b",c:TH.fg}],lx,y+78,"left");
+  };
+  stat(560,TH.ok,t("noLimit"),m.normal,labs.length?t("unitMore"):t("unit"));
+  stat(700,labs.length?TH.warn:TH.line,t("limitedMax"),m.sum,t("unit"));
+  if (m.accts.length) T(ctx,t("plusAcct",m.accts.length),lx,838,{s:24,r:"body",w:"b",c:TH.bad,max:W-M-lx});
+
+  // C. 気をつけること（行数を先に決める）
+  const TP=L[lang].tips;
+  const cats=[...new Set(all.map(l=>l.cat))];
+  let tips=[]; cats.forEach(c=>(TP[c]||TP.other).forEach(x=>{ if(!tips.includes(x)) tips.push(x); }));
+  if (!tips.length) tips=TP.none.slice();
+  tips=tips.slice(0, all.length>4 ? 1 : all.length>2 ? 2 : 3);
+  const boxH=96+tips.length*52, boxLimit=H-140-boxH;
+
+  // B. ラベル×きっかけの表
+  const by=922;
+  T(ctx,t("trigTitle"),M,by,{s:32,r:"head",w:"b",c:TH.fg});
+  T(ctx,t("trigCap"),M,by+40,{s:21,r:"body",w:"r",c:TH.muted,max:W-2*M});
+  let rowsEnd = by+60;
+  if (!all.length){
+    box(ctx,M,by+72,W-2*M,96,{r:Math.min(ST.R,24)});
+    T(ctx,t("noLabels"),M+32,by+132,{s:28,r:"body",w:"b",c:TH.fg});
+    rowsEnd = by+168;
+  } else {
+    const ORDER=["auto","report","legal","review","unknown"], TG=L[lang].trig;
+    const kinds=ORDER.filter(k=>all.some(l=>l.trig.has(k)));
+    const colW=Math.min(116,(W-M-(M+560))/kinds.length), colX0=W-M-colW*kinds.length;
+    const hy=by+88;
+    kinds.forEach((k,j)=>{
+      const x=colX0+colW*j+colW/2;
+      drawIcon(ctx,TRIG_ICON[k],x,hy,34,TH.fg,3.4);
+      T(ctx,TG[k],x,hy+44,{s:20,r:"body",w:"b",c:TH.muted,a:"center",max:colW-6});
+    });
+    const rowsStart=hy+62;
+    let rowH=72, fitN=Math.floor((boxLimit-36-rowsStart)/rowH);
+    for (const h of [60,50]) if (all.length>fitN){ rowH=h; fitN=Math.floor((boxLimit-36-rowsStart)/rowH); }
+    fitN=Math.max(fitN,1);
+    let list = all;
+    if (all.length>fitN && m.accts.length>1){
+      const agg = {agg:m.accts.length, level:"acct", _c:TH.bad, trig:new Set(m.accts.flatMap(a=>[...a.trig]))};
+      list = [agg, ...all.filter(l=>l.level!=="acct")];
+    }
+    const shown = list.length>fitN ? list.slice(0,fitN-1) : list;
+    const hiddenCount = list.length>fitN ? all.length-(list!==all ? m.accts.length+shown.length-1 : shown.length) : 0;
+    shown.forEach((l,i)=>{
+      const y=rowsStart+i*rowH, mid=y+rowH/2;
+      if (i%2===0){ if(ST.tile==="line"){ ctx.fillStyle=TH.line; ctx.fillRect(M-16,y,W-2*M+32,1.5); } else { ctx.fillStyle=TH.card; rr(ctx,M-16,y,W-2*M+32,rowH,Math.min(ST.R,14)); ctx.fill(); } }
+      ctx.fillStyle=l._c; ctx.beginPath(); ctx.arc(M+10,mid,11,0,7); ctx.fill();
+      const countRight=colX0-28;
+      let cw;
+      if (l.level==="acct") cw = l.days ? T(ctx,t("days",l.days,l.daysInPeriod),countRight,mid+11,{s:28,r:"body",w:"x",c:TH.bad,a:"right"})
+                                        : T(ctx,t("all"),countRight,mid+12,{s:30,r:"body",w:"x",c:TH.bad,a:"right"});
+      else cw = lang==="en" ? T(ctx,l.posts,countRight,mid+14,{s:40,r:"num",w:"x",c:TH.fg,a:"right"})
+                            : runs(ctx,[{t:l.posts,s:40,r:"num",w:"x",c:TH.fg,gap:3},{t:t("unit"),s:20,r:"body",w:"b",c:TH.fg}],countRight,mid+14,"right");
+      T(ctx,labelName(l),M+36,mid+10,{s:28,r:"body",w:"b",c:TH.fg,max:countRight-cw-20-(M+36)});
+      kinds.forEach((k,j)=>{
+        const x=colX0+colW*j+colW/2;
+        if (l.trig.has(k)){ ctx.fillStyle=l._c; ctx.beginPath(); ctx.arc(x,mid,15,0,7); ctx.fill(); if(ST.tile==="pop"){ ctx.strokeStyle=TH.fg; ctx.lineWidth=3; ctx.stroke(); } }
+        else { ctx.fillStyle=TH.line; rr(ctx,x-12,mid-2,24,4,2); ctx.fill(); }
+      });
+      rowsEnd=y+rowH;
+    });
+    if (hiddenCount>0){
+      T(ctx,t("omitted",hiddenCount),M+36,rowsEnd+38,{s:22,r:"body",w:"r",c:TH.muted,max:W-2*M-36});
+      rowsEnd+=52;
+    }
+  }
+
+  const boxY=Math.min(boxLimit, rowsEnd+44);
+  box(ctx,M,boxY,W-2*M,boxH,{r:Math.min(ST.R,28)});
+  badge(ctx,"check",M+52,boxY+52,24,TH.ok);
+  T(ctx,t("tipsTitle"),M+92,boxY+62,{s:30,r:"head",w:"b",c:TH.fg});
+  tips.forEach((x,i)=>{
+    const y=boxY+112+i*52;
+    ctx.fillStyle=TH.muted; ctx.beginPath(); ctx.arc(M+52,y-9,5,0,7); ctx.fill();
+    T(ctx,x,M+76,y,{s:26,r:"body",w:"r",c:TH.fg,max:W-2*M-110});
+  });
+  footer(ctx,m);
+}
+
+/* ================= 投稿用テキスト ================= */
+/* 公開後にサイトのURLが決まったら、ここに入れる（空なら本文にURL行を付けない） */
+const SITE_URL = "";
+function verdictOf(m){
+  const shadow = m.accts.some(l=>l.eff.has("shadow")), sd = shadowDays(m);
+  if (shadow) return [t("vShadow"), sd && sd.days < sd.of ? t("vShadowSubDays",sd.days,sd.of) : t("vShadowSub")];
+  if (m.acctCount>0) return [t("vAcct"), t("vAcctSub",m.acctCount)];
+  if (m.posts.length) return [t("vPosts"), t("vPostsSub",m.sum)];
+  return [t("vNone"), t("vNoneSub")];
+}
+function orderedTiles(m){
+  let tiles = statusTiles(m);
+  if (sortKey==="level"){ const rank={bad:0,warn:0,ok:1,na:2}; tiles = tiles.map((x,i)=>({x,i})).sort((a,b)=>rank[a.x.st[0]]-rank[b.x.st[0]]||a.i-b.i).map(o=>o.x); }
+  return tiles;
+}
+const xCount = s => [...s.replace(/https?:\/\/\S+/g, "x".repeat(23))].reduce((n,ch)=>n + (/[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]|[\u{20000}-\u{3FFFD}]/u.test(ch) ? 2 : 1), 0);
+function clip(s, max){ return [...s].length<=max ? s : [...s].slice(0,max-1).join("")+"…"; }
+function buildTexts(m){
+  const ja = lang==="ja", [v, vs] = verdictOf(m), per = periodText(m);
+  const sep = ja ? "、" : "; ", end = ja ? "。" : ".";
+  const trigs = l => [...l.trig].map(k=>L[lang].trig[k]).join(ja?"・":"/");
+  /* 本文 */
+  const post = ja
+    ? `#UtH2i\nXの表示制限レポート（${per}）\n「${v}」でした！` + (SITE_URL ? `\n${SITE_URL}` : "")
+    : `#UtH2i\nMy X visibility report (${per})\nResult: "${v}"` + (SITE_URL ? `\n${SITE_URL}` : "");
+  /* 1枚目 */
+  const tl = orderedTiles(m).map(x=>`${x.name}${ja?"：":": "}${x.st[1]}`).join(ja?"／":"; ");
+  const alt1 = ja
+    ? `Xの表示制限レポート（${per}・投稿${m.total}件）の1枚目。判定は「${v}」。${vs}。ひと目でわかる状況：${tl}。「判定不可」はこのレポートに記録されない項目。過去1か月分の記録で、いまの状態とは限らない。`
+    : `Image 1 of my X visibility report (${per}, ${m.total} posts). Result: ${v}. ${vs}. At a glance: ${tl}. "Not covered" items are not recorded in this report. Covers the past month only.`;
+  /* 2枚目 */
+  const all=[...m.accts, ...[...m.posts].sort((a,b)=>b.posts-a.posts)];
+  const pct = m.total ? Math.round(m.normal/m.total*1000)/10 : 100;
+  const labs = all.map(l=>{
+    const c = l.level==="acct" ? (l.days ? t("days",l.days,l.daysInPeriod) : t("all")) : (ja?`${l.posts}件`:`${l.posts} posts`);
+    return ja ? `${labelName(l)}：${c}（きっかけ：${trigs(l)}）` : `${labelName(l)}, ${c} (trigger: ${trigs(l)})`;
+  });
+  const TP=L[lang].tips, cats=[...new Set(all.map(l=>l.cat))];
+  let tips=[]; cats.forEach(c=>(TP[c]||TP.other).forEach(x=>{ if(!tips.includes(x)) tips.push(x); }));
+  if (!tips.length) tips=TP.none.slice();
+  const head = ja
+    ? `Xの表示制限レポートの2枚目「内訳ときっかけ」。制限なし${m.normal}件以上（${pct}%以上）、制限あり最大${m.sum}件。`
+    : `Image 2 of my X visibility report: breakdown and triggers. No limits: ${m.normal} posts or more (${pct}% or more). Limited: at most ${m.sum} posts.`;
+  const tail = (ja?"気をつけること：":" What to watch: ") + tips.join(ja?"／":"; ") + end;
+  let body = all.length ? (ja?"ラベル：":" Labels: ") : (ja?"記録されたラベルはなし。":" No labels recorded.");
+  let used = [...head].length + [...tail].length + [...body].length + 2, shown = 0;
+  for (const x of labs){ const add = (shown?(ja?"／":"; "):"") + x; if (used + [...add].length > 960) break; body += add; used += [...add].length; shown++; }
+  if (shown < labs.length) body += ja ? `／ほか${labs.length-shown}種` : `; ${labs.length-shown} more`;
+  if (all.length) body += end;
+  const alt2 = `${head}${body}${tail}`;
+  return {post, alt1: clip(alt1,1000), alt2: clip(alt2,1000)};
+}
+function renderTexts(){
+  if (!model) return;
+  const tx = buildTexts(model);
+  $("postX").href = "https://x.com/intent/post?text=" + encodeURIComponent(tx.post);
+  [["post",tx.post,xCount(tx.post),280,"cntPost"],["alt1",tx.alt1,[...tx.alt1].length,1000,"cntAlt"],["alt2",tx.alt2,[...tx.alt2].length,1000,"cntAlt"]].forEach(([k,v,n,max,ck])=>{
+    $("tx-"+k).value = v;
+    $("cnt-"+k).textContent = t(ck,n);
+    $("cnt-"+k).classList.toggle("over", n>max);
+  });
+}
+document.querySelectorAll("[data-copy]").forEach(b=>b.addEventListener("click", async ()=>{
+  const ta = $("tx-"+b.dataset.copy);
+  let ok=false;
+  try { await navigator.clipboard.writeText(ta.value); ok=true; } catch(_){ ta.focus(); ta.select(); try{ ok=document.execCommand("copy"); }catch(__){} }
+  if (ok){ b.textContent=t("copied"); b.classList.add("done"); setTimeout(()=>{ b.textContent=t("copy"); b.classList.remove("done"); },1600); }
+  else { ta.focus(); ta.setSelectionRange(0, ta.value.length); }
+}));
+
+/* ================= 画面の制御 ================= */
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+let styleKey="standard", modeKey="light", sortKey="type", model=null, blobs=[null,null], downloads=null, busy=false, paintId=0, pendingSecond=false, isSample=false, debugIdx=-1, lastState=null, lastStatus=null, lastErr=null;
+try {
+  const s=localStorage.getItem("uth-style"); if(STYLES[s]) styleKey=s;
+  const md=localStorage.getItem("uth-theme"); if(MODES[md]) modeKey=md;
+  const so=localStorage.getItem("uth-sort"); if(so==="type"||so==="level") sortKey=so;
+  const lg=localStorage.getItem("uth-lang"); if(lg==="ja"||lg==="en") lang=lg;
+} catch(_){}
+const store = (k,v) => { try{ localStorage.setItem(k,v); }catch(_){} };
+
+/* ---- 言語の反映 ---- */
+function applyLang(){
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent=t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ el.placeholder=t(el.dataset.i18nPh); });
+  document.querySelectorAll("[data-i18n-aria]").forEach(el=>{ el.setAttribute("aria-label",t(el.dataset.i18nAria)); });
+  document.querySelectorAll("[data-i18n-alt]").forEach(el=>{ el.alt=t(el.dataset.i18nAlt); });
+  $("drawer").setAttribute("aria-label", t("look"));
+  $("lb").setAttribute("aria-label", t("lbAria")); $("lbClose").setAttribute("aria-label", t("lbClose"));
+  document.querySelectorAll("[data-lb]").forEach(b=>b.setAttribute("aria-label", t("lbGo", +b.dataset.lb+1)));
+  document.querySelectorAll("[data-lang]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.lang===lang));
+  renderOptions(); if (typeof renderScenarios==="function") renderScenarios(); syncButtons();
+  if (typeof renderHistory==="function" && $("hist")) renderHistory();
+  if (lastState) setState(...lastState);
+  if (lastStatus) say(...lastStatus);
+  if (lastErr) showErr(lastErr);
+  layoutDrawer();
+}
+document.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",()=>{
+  lang=b.dataset.lang; store("uth-lang",lang); applyLang(); if(model) paint();
+}));
+
+/* ---- ドロワー ---- */
+function chips(el, entries, attr, current){
+  el.innerHTML = entries.map(([k,name])=>`<button type="button" class="chip" ${attr}="${k}" aria-pressed="${k===current}">${name}</button>`).join("");
+}
+function renderOptions(){
+  chips($("styles"), Object.keys(STYLES).map(k=>[k,t("styles")[k]]), "data-style", styleKey);
+  chips($("modes"), Object.keys(MODES).map(k=>[k,t("modes")[k]]), "data-mode", modeKey);
+  chips($("sorts"), Object.entries(t("sorts")), "data-sort", sortKey);
+}
+function select(attr, key){ document.querySelectorAll(`[${attr}]`).forEach(b=>b.setAttribute("aria-pressed", b.getAttribute(attr)===key)); }
+$("styles").addEventListener("click",e=>{ const b=e.target.closest("[data-style]"); if(!b) return; styleKey=b.dataset.style; store("uth-style",styleKey); select("data-style",styleKey); if(model) paint(); });
+$("modes").addEventListener("click",e=>{ const b=e.target.closest("[data-mode]"); if(!b) return; modeKey=b.dataset.mode; store("uth-theme",modeKey); select("data-mode",modeKey); if(model) paint(); });
+$("sorts").addEventListener("click",e=>{ const b=e.target.closest("[data-sort]"); if(!b) return; sortKey=b.dataset.sort; store("uth-sort",sortKey); select("data-sort",sortKey); if(model) paint(); });
+
+function layoutDrawer(){
+  const bh=$("bar").offsetHeight;
+  document.documentElement.style.setProperty("--bar-h", bh+"px");
+  const open=$("drawer").classList.contains("open");
+  document.body.style.paddingBottom = (bh + 28 + (open ? $("drawer").offsetHeight : 0)) + "px";
+}
+$("look").addEventListener("click",()=>{
+  const open=!$("drawer").classList.contains("open");
+  $("drawer").classList.toggle("open",open);
+  $("look").setAttribute("aria-expanded",open);
+  $("drawer").inert=!open;
+  layoutDrawer();
+  if (open) revealPreview();
+});
+/* ドロワーを開いたら、表示中のプレビューがドロワーの上に収まるようにスクロール */
+function revealPreview(){
+  /* タブの上端からプレビューの下端までをひとまとまりとして扱う */
+  const view = $("viewAll").hidden ? $("viewX") : $("viewAll");
+  const top = document.querySelector(".tabs").getBoundingClientRect().top;
+  const bottom = view.getBoundingClientRect().bottom;
+  const visibleTop = $("top").getBoundingClientRect().bottom + 8;
+  const visibleBottom = window.innerHeight - $("bar").offsetHeight - $("drawer").offsetHeight - 12;
+  if (top >= visibleTop && bottom <= visibleBottom) return;
+  /* 収まらないときもタブを優先し、固定ヘッダーのすぐ下に合わせる */
+  const dy = top - visibleTop;
+  if (Math.abs(dy) < 2) return;
+  const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollBy({top: dy, behavior: reduce ? "auto" : "smooth"});
+}
+window.addEventListener("resize",layoutDrawer);
+const onScroll = () => $("top").classList.toggle("scrolled", window.scrollY > 4);
+window.addEventListener("scroll", onScroll, {passive:true}); onScroll();
+
+document.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>{
+  select("data-view", b.dataset.view);
+  $("viewAll").hidden = b.dataset.view!=="all"; $("viewX").hidden = b.dataset.view!=="x";
+  if ($("drawer").classList.contains("open")) revealPreview();
+}));
+
+/* ---- 保存したレポート（履歴） ---- */
+const HKEY="uth-history", CKEY="uth-current";
+let currentId=null;
+const hashId = str => { let h=5381; for (let i=0;i<str.length;i++) h=((h<<5)+h+str.charCodeAt(i))|0; return "r"+(h>>>0).toString(36)+str.length.toString(36); };
+function loadHistory(){ try { const h=JSON.parse(localStorage.getItem(HKEY)); return Array.isArray(h)?h:[]; } catch(_){ return []; } }
+function saveHistory(h){ try { localStorage.setItem(HKEY, JSON.stringify(h)); return true; } catch(_){ return false; } }
+const isReport = d => d && typeof d==="object" && !Array.isArray(d) && (("postLabels" in d) || ("postCount" in d));
+function sortHistory(h){ return h.sort((a,b)=> String(b.report.period&&b.report.period.startDate||"").localeCompare(String(a.report.period&&a.report.period.startDate||"")) || String(b.savedAt).localeCompare(String(a.savedAt))); }
+/* 追加：同じ内容（JSONとして同一）なら追加しない。戻り値 [id, 追加したか] */
+function addReport(h, d){
+  const canon = JSON.stringify(d), id = hashId(canon);
+  if (h.some(e=>e.id===id)) return [id,false];
+  h.push({id, savedAt:new Date().toISOString(), report:d});
+  return [id,true];
+}
+let thumbTimer=null;
+function updateThumb(show){
+  const el=$("hist"), th=$("histThumb");
+  if (el.scrollHeight <= el.clientHeight+1){ th.classList.remove("on"); th.style.height="0"; return; }
+  const h=Math.max(28, el.clientHeight*el.clientHeight/el.scrollHeight);
+  const top=(el.clientHeight-h)*el.scrollTop/(el.scrollHeight-el.clientHeight);
+  th.style.height=h+"px"; th.style.transform=`translateY(${top}px)`;
+  if (show){ th.classList.add("on"); clearTimeout(thumbTimer); thumbTimer=setTimeout(()=>th.classList.remove("on"),700); }
+}
+function renderHistory(){
+  const h = loadHistory();
+  const fmt = iso => { const d=new Date(iso); return isNaN(d) ? "" : `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`; };
+  $("hist").innerHTML = h.map(e=>{
+    const m = toModel(e.report);
+    return `<li><button type="button" data-hid="${e.id}" aria-current="${e.id===currentId}"><span class="h-main">${periodText(m)}・${t("histPosts",m.total)}</span><span class="h-sub">${t("histSaved",fmt(e.savedAt))}</span></button></li>`;
+  }).join("");
+  $("histWrap").hidden = !h.length; $("histEmpty").hidden = !!h.length;
+  updateThumb(false);
+  $("exportBtn").disabled = !h.length; $("clearBtn").disabled = !h.length && !hasSettings();
+}
+function hasSettings(){ try { return ["uth-style","uth-theme","uth-sort","uth-lang"].some(k=>localStorage.getItem(k)!==null); } catch(_){ return false; } }
+function sayData(key,...a){ $("dataStatus").textContent = key ? t(key,...a) : ""; }
+$("hist").addEventListener("scroll",()=>updateThumb(true),{passive:true});
+$("hist").addEventListener("click",e=>{
+  const b=e.target.closest("[data-hid]"); if(!b) return;
+  const entry = loadHistory().find(x=>x.id===b.dataset.hid); if(!entry) return;
+  loadText(JSON.stringify(entry.report), false);
+  window.scrollTo({top:0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+});
+$("exportBtn").addEventListener("click",()=>guarded(async()=>{
+  const h = loadHistory(); if(!h.length) return;
+  const settings = {}; ["uth-style","uth-theme","uth-sort","uth-lang"].forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!==null) settings[k]=v; }catch(_){} });
+  const out = {app:"UtH2i", version:1, exportedAt:new Date().toISOString(), settings, reports:h.map(e=>({savedAt:e.savedAt, report:e.report}))};
+  const d=new Date(), stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+  const name=`uth2i-backup-${stamp}.json`, text=JSON.stringify(out,null,1);
+  /* 自分のサイトに置いたときはOSの共有シート（「"ファイル"に保存」など）を使う */
+  if (!downloads && typeof File!=="undefined" && navigator.canShare){
+    for (const type of ["application/json","text/plain"]){
+      const f=new File([text], name, {type});
+      let ok=false; try { ok=navigator.canShare({files:[f]}); } catch(_){}
+      if (!ok) continue;
+      try { await navigator.share({files:[f]}); sayData("exported"); }
+      catch(e){ if(!(e && e.name==="AbortError")) sayData("svFail"); }
+      return;
+    }
+  }
+  const r = await trySave(name, new Blob([text],{type:"application/json"}));
+  r==="ok" ? sayData("exported") : sayData(r==="declined"?"svCancel":"svFail");
+}));
+$("importBtn").addEventListener("click",()=>$("importFile").click());
+$("importFile").addEventListener("change", async e=>{
+  const f = e.target.files && e.target.files[0]; e.target.value=""; if(!f) return;
+  let obj; try { obj = JSON.parse(await f.text()); } catch(_){ sayData("importBad"); return; }
+  let list = [];
+  if (obj && obj.app==="UtH2i" && Array.isArray(obj.reports)) list = obj.reports.map(x=>x && x.report ? x : {report:x});
+  else if (isReport(obj)) list = [{report:obj}];
+  else { sayData("importBad"); return; }
+  const h = loadHistory(); let added=0, dup=0, lastId=null;
+  list.forEach(x=>{ if(!isReport(x.report)) return; const [id,ok]=addReport(h,x.report); if(ok){ added++; lastId=id; const e=h.find(y=>y.id===id); if(x.savedAt) e.savedAt=x.savedAt; } else dup++; });
+  if (!saveHistory(sortHistory(h))){ sayData("saveFull"); return; }
+  if (obj.app==="UtH2i" && obj.settings && typeof obj.settings==="object"){
+    Object.entries(obj.settings).forEach(([k,v])=>{ if(/^uth-(style|theme|sort|lang)$/.test(k)) store(k,String(v)); });
+    restoreSettings(); applyLang();
+  }
+  added ? sayData("imported",added,dup) : sayData("importNone",dup);
+  if (!model && h.length){ const e2 = h.find(y=>y.id===lastId) || h[0]; loadText(JSON.stringify(e2.report), false); }
+  else { if (model) paint(); renderHistory(); }
+});
+let scrollLockY=0;
+function lockScroll(on){
+  const b=document.body, de=document.documentElement;
+  if (on){ scrollLockY=window.scrollY; de.style.overflow="hidden"; b.style.position="fixed"; b.style.top=`-${scrollLockY}px`; b.style.left="0"; b.style.right="0"; }
+  else { de.style.overflow=""; b.style.position=""; b.style.top=""; b.style.left=""; b.style.right=""; window.scrollTo(0,scrollLockY); }
+}
+function openConfirm(){ $("confirmBox").hidden=false; lockScroll(true); document.querySelectorAll(".wrap,.bar,.drawer").forEach(el=>el.inert=true); $("clearNo").focus(); }
+function closeConfirm(){ $("confirmBox").hidden=true; lockScroll(false); document.querySelectorAll(".wrap,.bar").forEach(el=>el.inert=false); $("drawer").inert=!$("drawer").classList.contains("open"); }
+$("clearBtn").addEventListener("click",openConfirm);
+$("clearNo").addEventListener("click",()=>{ closeConfirm(); $("clearBtn").focus(); });
+$("confirmBox").addEventListener("click",e=>{ if(e.target===$("confirmBox")){ closeConfirm(); $("clearBtn").focus(); } });
+$("confirmBox").addEventListener("touchmove",e=>{ if(!e.target.closest(".modal-card")) e.preventDefault(); },{passive:false});
+document.addEventListener("keydown",e=>{
+  if ($("confirmBox").hidden) return;
+  if (e.key==="Escape"){ closeConfirm(); $("clearBtn").focus(); }
+  if (e.key==="Tab"){ const a=$("clearNo"), z=$("clearYes"); if(e.shiftKey && document.activeElement===a){ e.preventDefault(); z.focus(); } else if(!e.shiftKey && document.activeElement===z){ e.preventDefault(); a.focus(); } }
+});
+$("clearYes").addEventListener("click",()=>{
+  try { Object.keys(localStorage).filter(k=>/^uth-/.test(k)).forEach(k=>localStorage.removeItem(k)); } catch(_){}
+  closeConfirm(); currentId=null; $("src").value=""; isSample=false; setDebug(-1);
+  styleKey="standard"; modeKey="light"; sortKey="type"; lang="ja";
+  clearOutput(); setState("stIdle"); applyLang(); renderHistory(); sayData("cleared");
+});
+function restoreSettings(){
+  try {
+    const s1=localStorage.getItem("uth-style"); if(STYLES[s1]) styleKey=s1;
+    const md=localStorage.getItem("uth-theme"); if(MODES[md]) modeKey=md;
+    const so=localStorage.getItem("uth-sort"); if(so==="type"||so==="level") sortKey=so;
+    const lg=localStorage.getItem("uth-lang"); if(lg==="ja"||lg==="en") lang=lg;
+  } catch(_){}
+}
+
+/* ---- 空の状態：画像と同じ比率の点線枠＋対角線 ---- */
+const BLANK = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 1754"><g fill="none" stroke="#A3A39E" stroke-width="6"><rect x="3" y="3" width="1234" height="1748" stroke-dasharray="28 20"/><path d="M3 3 L1237 1751 M1237 3 L3 1751" stroke-width="3" opacity=".6"/></g></svg>');
+/* 入力が正しくないときは、前の画像・テキストを消して空の状態に戻す */
+function clearOutput(){
+  paintId++; model=null; pendingSecond=false; shareFiles=null;
+  if (!$("lb").hidden) lbClose();
+  ["viewAll","xpost"].forEach(i=>$(i).classList.remove("stale"));
+  showBlank();
+}
+function showBlank(){
+  ["img1","img2","ximg1","ximg2","lb1","lb2"].forEach(id=>{ $(id).src=BLANK; });
+  document.querySelectorAll(".pages img,.xgrid img").forEach(el=>el.classList.add("blank"));
+  ["tx-post","tx-alt1","tx-alt2"].forEach(id=>{ $(id).value=""; });
+  ["cnt-post","cnt-alt1","cnt-alt2"].forEach(id=>{ $(id).textContent=""; });
+  blobs=[null,null]; syncButtons();
+}
+
+/* ---- 描画 ---- */
+async function paint(){
+  const id = ++paintId;
+  const c1=$("c1").getContext("2d"), c2=$("c2").getContext("2d");
+  buildTheme(styleKey, modeKey); assignColors(model); FONTREQ={};
+  drawPage1(c1,model); drawPage2(c2,model);
+  const ps=Object.entries(FONTREQ).map(([k,s])=>{ const i=k.indexOf("|"); return document.fonts.load(`${k.slice(0,i)} 40px ${k.slice(i+1)}`, s).catch(()=>{}); });
+  await Promise.race([Promise.all(ps), sleep(5000)]);
+  if (id!==paintId) return;
+  buildTheme(styleKey, modeKey); assignColors(model);
+  drawPage1(c1,model); drawPage2(c2,model);
+  const u1=$("c1").toDataURL("image/png"), u2=$("c2").toDataURL("image/png");
+  $("img1").src=u1; $("img2").src=u2; $("ximg1").src=u1; $("ximg2").src=u2; $("lb1").src=u1; $("lb2").src=u2;
+  ["viewAll","xpost"].forEach(i=>$(i).classList.remove("stale"));
+  document.querySelectorAll(".blank").forEach(el=>el.classList.remove("blank"));
+  const md=MODES[modeKey];
+  $("xpost").style.background=md.bg; $("xpost").style.color=md.fg; $("xpost").style.borderColor=md.line; $("xav").style.background=md.line;
+  blobs = await Promise.all([$("c1"),$("c2")].map(c=>new Promise(r=>c.toBlob(r,"image/png"))));
+  pendingSecond=false; updateShareFiles(); renderTexts(); syncButtons();
+}
+
+/* ---- 読み込み ---- */
+let timer=null;
+function setState(key,on){ lastState=[key,on]; $("state").textContent = key ? (key==="showing" ? t("stShowing",periodText(model),model.total) : key==="debug" && typeof SCENARIOS!=="undefined" ? t("stDebug",SCENARIOS[debugIdx].name[lang]) : t(key)) : ""; $("state").classList.toggle("on",!!on); }
+function showErr(key){
+  lastErr=key||null; $("err").textContent = key ? t(key) : ""; $("err").hidden=!key;
+  if(key){ clearOutput(); setState("stFailed"); }
+}
+function run(x){
+  showErr(null);
+  const txt=String(x ?? $("src").value).trim();
+  if(!txt){ clearOutput(); setState("stIdle"); return; }
+  let d;
+  try { const s=txt.indexOf("{"), e=txt.lastIndexOf("}"); d=JSON.parse(s>=0&&e>s?txt.slice(s,e+1):txt); }
+  catch(_){ showErr("errJson"); return; }
+  if(!d || typeof d!=="object" || (!("postLabels" in d) && !("postCount" in d))){ showErr("errShape"); return; }
+  model=toModel(d);
+  if (!isSample && debugIdx<0){
+    const h=loadHistory(), [id,added]=addReport(h,d);
+    currentId=id; store(CKEY,id);
+    if (added && !saveHistory(sortHistory(h))) sayData("saveFull");
+    renderHistory();
+  }
+  setState(debugIdx>=0 ? "debug" : isSample ? "stSample" : "showing");
+  paint();
+}
+function loadText(x, sample){ isSample=!!sample; setDebug(-1); $("src").value = sample ? "" : x; run(x); }
+$("load").addEventListener("click", async ()=>{
+  if (!navigator.clipboard || !navigator.clipboard.readText){ $("src").focus(); setState("stNoClip",true); return; }
+  /* iOSでは読み込みのたびに「ペースト」の吹き出しが出る。押されるまで待つ間、案内を出す */
+  const prev = lastState;
+  const hint = setTimeout(()=>setState("stTapPaste",true), 150);
+  try {
+    const x = await navigator.clipboard.readText();
+    clearTimeout(hint);
+    if (!x || !x.trim()){ prev ? setState(...prev) : setState(null); setState("stClipEmpty",true); return; }
+    loadText(x,false);
+  } catch(_){
+    clearTimeout(hint);
+    $("src").focus();
+    setState("stNoClip",true);
+  }
+});
+$("src").addEventListener("paste", e=>{
+  const x = e.clipboardData && e.clipboardData.getData("text");
+  if (!x) return;
+  e.preventDefault(); loadText(x,false); $("src").blur();
+});
+$("src").addEventListener("input", ()=>{ isSample=false; setDebug(-1); clearTimeout(timer); timer=setTimeout(()=>run(),250); });
+
+/* ---- 保存 ---- */
+function fileBase(){
+  const p = model && /^(\d{4})-(\d{2})/.exec(model.start||"");
+  return `uth2i-${p ? p[1]+"-"+p[2] : "report"}-${styleKey}-${modeKey}-${lang}`;
+}
+function say(key,arg){ lastStatus=key?[key,arg]:null; $("status").textContent = key ? t(key,arg) : ""; layoutDrawer(); }
+/* Claudeの表示環境の外（自分のサイトなど）では、通常のダウンロードで保存する */
+const STANDALONE = typeof window.claude === "undefined";
+function plainDownload(filename, data){
+  const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([data]));
+  const a = document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
+async function trySave(filename, data){
+  if (!downloads && STANDALONE){ plainDownload(filename, data); return "ok"; }
+  for (let i=0;i<3;i++){
+    try { await downloads.save({filename, data}); return "ok"; }
+    catch(e){
+      const c = e && e.code;
+      if (c==="declined") return "declined";
+      if (c==="rate_limited"){ await sleep(1200); continue; }
+      return "fail";
+    }
+  }
+  return "busy";
+}
+async function saveOne(i){ if((!downloads && !STANDALONE) || !blobs[i]) return "fail"; return trySave(`${fileBase()}_${i+1}.png`, blobs[i]); }
+async function guarded(fn){ if(busy) return; busy=true; syncButtons(); try{ await fn(); } finally { busy=false; syncButtons(); } }
+const failKey = r => r==="declined" ? "svCancel" : "svFail";
+
+document.querySelectorAll("[data-save]").forEach(b=>b.addEventListener("click",()=>guarded(async()=>{
+  const i=+b.dataset.save, r=await saveOne(i);
+  r==="ok" ? say("svOne",i+1) : say(failKey(r));
+})));
+$("saveBoth").addEventListener("click",()=>guarded(async()=>{
+  if (shareFiles){
+    try { await navigator.share({files:shareFiles, text: $("tx-post").value}); say("svShared"); }
+    catch(e){ if (!(e && e.name==="AbortError")) say("svShareFail"); }
+    return;
+  }
+  if (pendingSecond){
+    const r=await saveOne(1);
+    if (r==="ok"){ pendingSecond=false; say("svBoth"); } else say(failKey(r));
+    return;
+  }
+  say("sv1");
+  const r1=await saveOne(0);
+  if (r1!=="ok"){ say(failKey(r1)); return; }
+  await sleep(900);
+  say("sv2");
+  const r2=await saveOne(1);
+  if (r2==="ok"){ say("svBoth"); return; }
+  if (r2==="declined"){ say("svOnlyFirst"); return; }
+  pendingSecond=true; say("svNext");
+}));
+$("saveZip").addEventListener("click",()=>guarded(async()=>{
+  if((!downloads && !STANDALONE) || !window.JSZip) return;
+  const zip=new JSZip(); zip.file(`${fileBase()}_1.png`,blobs[0]); zip.file(`${fileBase()}_2.png`,blobs[1]);
+  const r=await trySave(`${fileBase()}.zip`, await zip.generateAsync({type:"blob"}));
+  r==="ok" ? say("svZip") : say(failKey(r));
+}));
+/* OSの共有シートが使えるか（自前のサイトに置いたとき。Claudeの表示環境では使えない） */
+let shareFiles=null;
+function updateShareFiles(){
+  shareFiles=null;
+  if (downloads || !(blobs[0]&&blobs[1]) || typeof File==="undefined" || !navigator.canShare) return;
+  try {
+    const fs=blobs.map((b,i)=>new File([b], `${fileBase()}_${i+1}.png`, {type:"image/png"}));
+    if (navigator.canShare({files:fs})) shareFiles=fs;
+  } catch(_){}
+}
+function syncButtons(){
+  const ready = !!(blobs[0]&&blobs[1]) && !busy;
+  const can = (!!downloads || STANDALONE) && ready, share = !!shareFiles && ready;
+  $("saveBoth").disabled = !(can||share); $("saveZip").disabled=!can || !window.JSZip;
+  $("saveBoth").textContent = shareFiles ? t("share") : t(pendingSecond ? "saveSecond" : "saveBoth");
+  document.querySelectorAll("[data-save]").forEach(b=>b.disabled=!can);
+  $("postX").setAttribute("aria-disabled", model ? "false" : "true");
+  document.querySelectorAll("[data-copy]").forEach(b=>b.disabled = !$("tx-"+b.dataset.copy).value);
+}
+
+function setDebug(i){ debugIdx=i; document.querySelectorAll("[data-scen]").forEach(b=>b.setAttribute("aria-pressed", +b.dataset.scen===i)); }
+/* ---- ライトボックス ---- */
+let lbIndex=0, lbStartX=null, lbStartY=0, lbDx=0, lbMoved=false, lbReturn=null;
+function lbRender(){
+  $("lbTrack").style.transform = `translateX(calc(${-lbIndex*50}% + ${lbDx/2}px))`;
+  document.querySelectorAll("[data-lb]").forEach(b=>b.setAttribute("aria-current", +b.dataset.lb===lbIndex));
+}
+function lbOpen(i, from){
+  if (!model || $("img1").classList.contains("blank")) return;
+  lbReturn=from||null; lbIndex=i; lbDx=0;
+  $("lbTrack").classList.add("drag"); lbRender();
+  $("lb").hidden=false; document.documentElement.style.overflow="hidden";
+  requestAnimationFrame(()=>$("lbTrack").classList.remove("drag"));
+  $("lbClose").focus();
+}
+function lbClose(){
+  $("lb").hidden=true; document.documentElement.style.overflow="";
+  if (lbReturn) lbReturn.focus({preventScroll:true});
+}
+function lbGo(i){ lbIndex=Math.max(0,Math.min(1,i)); lbDx=0; lbRender(); }
+[["img1",0],["img2",1],["ximg1",0],["ximg2",1]].forEach(([id,i])=>{
+  const el=$(id); el.tabIndex=0;
+  el.addEventListener("click",()=>lbOpen(i,el));
+  el.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); lbOpen(i,el); } });
+});
+$("lbClose").addEventListener("click",lbClose);
+document.querySelectorAll("[data-lb]").forEach(b=>b.addEventListener("click",()=>lbGo(+b.dataset.lb)));
+$("lbView").addEventListener("pointerdown",e=>{
+  if (e.pointerType==="mouse" && e.button!==0) return;
+  lbStartX=e.clientX; lbStartY=e.clientY; lbDx=0; lbMoved=false; $("lbTrack").classList.add("drag");
+});
+window.addEventListener("pointermove",e=>{
+  if (lbStartX===null) return;
+  let dx=e.clientX-lbStartX;
+  if (Math.abs(dx)>6 || Math.abs(e.clientY-lbStartY)>6) lbMoved=true;
+  if ((lbIndex===0 && dx>0) || (lbIndex===1 && dx<0)) dx*=0.3;
+  lbDx=dx*2; lbRender();
+});
+function lbEnd(){
+  if (lbStartX===null) return;
+  $("lbTrack").classList.remove("drag");
+  const th=Math.min(80, $("lbView").clientWidth*0.18), dx=lbDx/2;
+  if (dx<-th && lbIndex<1) lbIndex++;
+  else if (dx>th && lbIndex>0) lbIndex--;
+  lbStartX=null; lbDx=0; lbRender();
+}
+window.addEventListener("pointerup",lbEnd);
+window.addEventListener("pointercancel",lbEnd);
+$("lbView").addEventListener("click",e=>{
+  if (lbMoved){ lbMoved=false; return; }
+  if (e.target.tagName!=="IMG") lbClose();
+});
+document.addEventListener("keydown",e=>{
+  if ($("lb").hidden) return;
+  if (e.key==="Escape") lbClose();
+  else if (e.key==="ArrowRight") lbGo(lbIndex+1);
+  else if (e.key==="ArrowLeft") lbGo(lbIndex-1);
+});
+
+applyLang();
+/* 旧形式（最後の1件だけ）からの引き継ぎ */
+try { const old=localStorage.getItem("uth-last"); if(old){ const d=JSON.parse(old); if(isReport(d)){ const h=loadHistory(); const [id]=addReport(h,d); saveHistory(sortHistory(h)); localStorage.setItem(CKEY,id); } localStorage.removeItem("uth-last"); } } catch(_){}
+(()=>{
+  const h=loadHistory(); let cid=null; try{ cid=localStorage.getItem(CKEY); }catch(_){}
+  const e = h.find(x=>x.id===cid) || null;
+  if (e) loadText(JSON.stringify(e.report), false); else { showBlank(); setState("stIdle"); }
+  renderHistory();
+})();
+(async()=>{
+  try { downloads = window.claude && window.claude.use ? await window.claude.use("downloads") : null; } catch(_){ downloads=null; }
+  updateShareFiles();
+  if(!downloads && !shareFiles && !STANDALONE) say("svUnavailable");
+  syncButtons();
+})();
+</script>
+
+</body>
+</html>
