@@ -55,7 +55,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;flex:none}
 .lang button{border:0;background:none;border-radius:999px;padding:4px 12px;font-size:.78rem;font-weight:500;color:var(--muted)}
 .lang button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
-.lead{color:var(--muted);font-size:.85rem;margin-top:-10px}
+.lead{color:var(--muted);font-size:.85rem;margin-top:-10px;white-space:pre-line}
 
 /* 読み込み */
 .loader{display:flex;flex-direction:column;gap:8px}
@@ -65,8 +65,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 /* iOSは16px未満の入力欄を選ぶと自動で拡大するので、16pxにしておく */
 .catcher{width:100%;height:84px;resize:none;overflow:hidden;font-family:var(--font-mono);font-size:16px;line-height:24px;
   background:var(--surface);color:var(--muted);border:1.5px dashed var(--muted);border-radius:12px;padding:16px;word-break:break-all;cursor:text}
-.catcher::placeholder{color:var(--muted);font-family:var(--font-body);font-size:15px;line-height:26px;text-align:center}
+.catcher::placeholder{color:var(--muted);font-family:var(--font-body);font-size:15px;line-height:26px;text-align:left}
 .paste-label{font-size:.95rem;font-weight:600}
+.or-file{display:flex;align-items:center;gap:10px;font-size:.82rem;color:var(--muted)}
+.or-file .tx-copy{margin-left:0}
+.catcher.drag{border-style:solid;border-color:var(--ink);background:var(--bg)}
 .catcher:focus{border-style:solid;border-color:var(--muted);outline:none}
 .state{font-size:.82rem;color:var(--muted)}
 .state.on{color:var(--ink);font-weight:600}
@@ -201,6 +204,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <p class="get"><span data-i18n="getLead"></span><a href="https://x.com/i/under_the_hood" target="_blank" rel="noopener"><span data-i18n="getLink"></span><svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2h6v6M10 2 3 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a><span class="get-url">x.com/i/under_the_hood</span></p>
     <label class="paste-label" for="src" data-i18n="pasteLabel"></label>
     <textarea id="src" class="catcher" rows="2" spellcheck="false" autocomplete="off" autocapitalize="off" data-i18n-ph="catcher"></textarea>
+    <div class="or-file">
+      <span data-i18n="orFile"></span>
+      <button type="button" class="tx-copy" id="fileBtn" data-i18n="fromFile"></button>
+      <input type="file" id="srcFile" accept="application/json,.json,text/plain" hidden>
+    </div>
     <p class="state" id="state"></p>
     <div id="err" class="err" hidden></div>
   </section>
@@ -308,9 +316,9 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const L = {
   ja:{
-    lead:"XのUnder the Hoodレポートを、X投稿用の図解2枚に。データは端末の外に出ません。",
-    pasteLabel:"コピーしたレポート（JSON）を貼り付け",
-    getLead:"レポートの入手：", getLink:"XのUnder the Hoodページ", catcher:"ここをタップして、もう一度タップか長押しで「ペースト」", catcherAria:"レポートの貼り付け欄",
+    lead:"XのUnder the Hoodレポートを、X投稿用の図解2枚に。\nデータは端末の外に出ません。",
+    pasteLabel:"コピーしたレポート（JSON）を貼り付け", orFile:"または", fromFile:"ファイルから読み込む",
+    getLead:"レポートの入手：", getLink:"XのUnder the Hoodページ", catcher:"1. ここをタップする\n2. もう一度タップか長押しで「ペースト」", catcherAria:"レポートの貼り付け欄",
     tabsAria:"プレビューの種類", tabAll:"2枚の全体", tabX:"Xでの見え方", cap1:"1枚目", cap2:"2枚目", saveOne:"この1枚を保存",
     alt1:"1枚目：ひと目でわかる状況", alt2:"2枚目：内訳ときっかけ", yourPost:"あなたの投稿",
     note:"1240×1754px（1:√2）の画像2枚です。画像をタップすると大きく表示できます。保存ボタンが使えない環境では、画像を長押しして保存できます。",
@@ -381,9 +389,9 @@ const L = {
     gen:{nsfw:"成人向け関連",gore:"暴力表現関連",spam:"スパム関連",abuse:"攻撃的な内容",copyright:"著作権関連",legal:"法的な措置",unknown:c=>"未知："+c}
   },
   en:{
-    lead:"Turn X's Under the Hood report into two images ready to post on X. Your data never leaves this device.",
-    pasteLabel:"Paste your copied report (JSON)",
-    getLead:"Get your report:", getLink:"X's Under the Hood page", catcher:"Tap here, then tap or long-press again and choose Paste", catcherAria:"Report paste field",
+    lead:"Turn X's Under the Hood report into two images ready to post on X.\nYour data never leaves this device.",
+    pasteLabel:"Paste your copied report (JSON)", orFile:"or", fromFile:"Load from a file",
+    getLead:"Get your report:", getLink:"X's Under the Hood page", catcher:"1. Tap here\n2. Tap or long-press again and choose Paste", catcherAria:"Report paste field",
     tabsAria:"Preview type", tabAll:"Both images", tabX:"As seen on X", cap1:"Image 1", cap2:"Image 2", saveOne:"Save this image",
     alt1:"Image 1: At a glance", alt2:"Image 2: Breakdown and triggers", yourPost:"Your post",
     note:"Two images at 1240×1754px (1:√2). Tap an image to enlarge it. If the save buttons don't work here, long-press an image to save it.",
@@ -1284,6 +1292,22 @@ $("src").addEventListener("paste", e=>{
   const x = e.clipboardData && e.clipboardData.getData("text");
   if (!x) return;
   e.preventDefault(); loadText(x,false); $("src").blur();
+});
+/* ファイルから読み込む（ダウンロードしたJSONをそのまま選べる） */
+async function loadFile(f){
+  if (!f) return;
+  let text=""; try { text = await f.text(); } catch(_){ showErr("errJson"); return; }
+  loadText(text, false);
+}
+$("fileBtn").addEventListener("click",()=>$("srcFile").click());
+$("srcFile").addEventListener("change",e=>{ const f=e.target.files && e.target.files[0]; e.target.value=""; loadFile(f); });
+/* パソコンではファイルを欄にドロップしても読み込める */
+["dragenter","dragover"].forEach(ev=>$("src").addEventListener(ev,e=>{ if([...(e.dataTransfer&&e.dataTransfer.types||[])].includes("Files")){ e.preventDefault(); $("src").classList.add("drag"); } }));
+["dragleave","dragend"].forEach(ev=>$("src").addEventListener(ev,()=>$("src").classList.remove("drag")));
+$("src").addEventListener("drop",e=>{
+  const f=e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  $("src").classList.remove("drag");
+  if (f){ e.preventDefault(); loadFile(f); }
 });
 $("src").addEventListener("input", ()=>{ isSample=false; setDebug(-1); clearTimeout(timer); timer=setTimeout(()=>run(),250); });
 
