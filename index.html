@@ -62,11 +62,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .get{font-size:.82rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:0 6px;align-items:baseline}
 .get-url{font-family:var(--font-mono);font-size:.75rem;color:var(--faint);user-select:all}
 .get a{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px;display:inline-flex;align-items:center;gap:4px}
-.load{width:100%;font-weight:600;font-size:.98rem;border-radius:10px;padding:14px;border:0;background:var(--ink);color:var(--surface)}
 /* iOSは16px未満の入力欄を選ぶと自動で拡大するので、16pxにしておく */
-.catcher{width:100%;height:46px;resize:none;overflow:hidden;white-space:nowrap;font-family:var(--font-mono);font-size:16px;line-height:24px;
-  background:transparent;color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:10px 12px}
-.catcher::placeholder{color:var(--faint);font-family:var(--font-body);font-size:14px}
+.catcher{width:100%;height:84px;resize:none;overflow:hidden;font-family:var(--font-mono);font-size:16px;line-height:24px;
+  background:var(--surface);color:var(--muted);border:1.5px dashed var(--muted);border-radius:12px;padding:16px;word-break:break-all;cursor:text}
+.catcher::placeholder{color:var(--muted);font-family:var(--font-body);font-size:15px;line-height:26px;text-align:center}
+.paste-label{font-size:.95rem;font-weight:600}
 .catcher:focus{border-style:solid;border-color:var(--muted);outline:none}
 .state{font-size:.82rem;color:var(--muted)}
 .state.on{color:var(--ink);font-weight:600}
@@ -199,8 +199,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
   <section class="loader">
     <p class="get"><span data-i18n="getLead"></span><a href="https://x.com/i/under_the_hood" target="_blank" rel="noopener"><span data-i18n="getLink"></span><svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2h6v6M10 2 3 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a><span class="get-url">x.com/i/under_the_hood</span></p>
-    <button id="load" class="load" type="button" data-i18n="load"></button>
-    <textarea id="src" class="catcher" rows="1" spellcheck="false" data-i18n-ph="catcher" data-i18n-aria="catcherAria"></textarea>
+    <label class="paste-label" for="src" data-i18n="pasteLabel"></label>
+    <textarea id="src" class="catcher" rows="2" spellcheck="false" autocomplete="off" autocapitalize="off" data-i18n-ph="catcher"></textarea>
     <p class="state" id="state"></p>
     <div id="err" class="err" hidden></div>
   </section>
@@ -309,8 +309,8 @@ const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","
 const L = {
   ja:{
     lead:"XのUnder the Hoodレポートを、X投稿用の図解2枚に。データは端末の外に出ません。",
-    getLead:"レポートの入手：", getLink:"XのUnder the Hoodページ",
-    load:"クリップボードのレポートを読み込む", catcher:"読み込めないときは、タップして「ペースト」", catcherAria:"レポートの貼り付け欄",
+    pasteLabel:"コピーしたレポート（JSON）を貼り付け",
+    getLead:"レポートの入手：", getLink:"XのUnder the Hoodページ", catcher:"ここをタップして、もう一度タップか長押しで「ペースト」", catcherAria:"レポートの貼り付け欄",
     tabsAria:"プレビューの種類", tabAll:"2枚の全体", tabX:"Xでの見え方", cap1:"1枚目", cap2:"2枚目", saveOne:"この1枚を保存",
     alt1:"1枚目：ひと目でわかる状況", alt2:"2枚目：内訳ときっかけ", yourPost:"あなたの投稿",
     note:"1240×1754px（1:√2）の画像2枚です。画像をタップすると大きく表示できます。保存ボタンが使えない環境では、画像を長押しして保存できます。",
@@ -330,10 +330,8 @@ const L = {
     modes:{light:"ライト",dim:"ダークブルー",black:"ブラック"}, sorts:{type:"種類順",level:"注意が必要な順"},
     saveBoth:"2枚続けて保存", share:"画像を共有", postX:"Xで投稿",
     svShared:"共有しました。", svShareFail:"共有できませんでした。画像を長押しして保存してください。", saveSecond:"続けて2枚目を保存",
-    stIdle:"レポートを読み込むと、すぐ下に図解ができあがります。",
+    stIdle:"貼り付けると、すぐ下に図解ができあがります。",
     stShowing:(p,n)=>`${p}（投稿${n}件）のレポートを表示中`, stSample:"サンプルを表示中。自分のレポートを読み込むと置き換わります。",
-    stTapPaste:"ボタンの近くに出た「ペースト」をタップすると読み込みます。", stClipEmpty:"クリップボードが空でした。Under the Hoodのレポートをコピーしてからもう一度押してください。",
-    stNoClip:"この環境ではボタンから直接読み込めません。すぐ下の欄をタップして選んだあと、もう一度タップか長押しして「ペースト」を選んでください。",
     stFailed:"読み込みに失敗しました。正しいレポートを読み込むと図解ができあがります。",
     errJson:"JSONとして読み取れませんでした。コピーした範囲の最初の { や最後の } が欠けていないか確認してください。",
     errShape:"Under the Hoodのレポート形式ではないようです（postLabels / postCount が見つかりません）。",
@@ -384,8 +382,8 @@ const L = {
   },
   en:{
     lead:"Turn X's Under the Hood report into two images ready to post on X. Your data never leaves this device.",
-    getLead:"Get your report:", getLink:"X's Under the Hood page",
-    load:"Load report from clipboard", catcher:"If loading fails, tap here, then choose Paste", catcherAria:"Report paste field",
+    pasteLabel:"Paste your copied report (JSON)",
+    getLead:"Get your report:", getLink:"X's Under the Hood page", catcher:"Tap here, then tap or long-press again and choose Paste", catcherAria:"Report paste field",
     tabsAria:"Preview type", tabAll:"Both images", tabX:"As seen on X", cap1:"Image 1", cap2:"Image 2", saveOne:"Save this image",
     alt1:"Image 1: At a glance", alt2:"Image 2: Breakdown and triggers", yourPost:"Your post",
     note:"Two images at 1240×1754px (1:√2). Tap an image to enlarge it. If the save buttons don't work here, long-press an image to save it.",
@@ -405,10 +403,8 @@ const L = {
     modes:{light:"Default",dim:"Dim",black:"Lights out"}, sorts:{type:"By type",level:"Needs attention first"},
     saveBoth:"Save both images", share:"Share images", postX:"Post on X",
     svShared:"Shared.", svShareFail:"Couldn't share. Long-press an image to save it.", saveSecond:"Save image 2",
-    stIdle:"Load a report and the images appear right below.",
+    stIdle:"Paste it and the images appear right below.",
     stShowing:(p,n)=>`Showing the report for ${p} (${n} posts)`, stSample:"Showing a sample. Load your own report to replace it.",
-    stTapPaste:"Tap the \"Paste\" bubble that appeared near the button to load it.", stClipEmpty:"The clipboard was empty. Copy your Under the Hood report and try again.",
-    stNoClip:"This page can't read the clipboard directly. Tap the field below to select it, then tap or long-press it again and choose Paste.",
     stFailed:"Loading failed. Load a valid report to create the images.",
     errJson:"This isn't valid JSON. Check that the copied text includes the first { and the last }.",
     errShape:"This doesn't look like an Under the Hood report (no postLabels or postCount found).",
@@ -1283,22 +1279,7 @@ function run(x){
   paint();
 }
 function loadText(x, sample){ isSample=!!sample; setDebug(-1); $("src").value = sample ? "" : x; run(x); }
-$("load").addEventListener("click", async ()=>{
-  if (!navigator.clipboard || !navigator.clipboard.readText){ $("src").focus(); setState("stNoClip",true); return; }
-  /* iOSでは読み込みのたびに「ペースト」の吹き出しが出る。押されるまで待つ間、案内を出す */
-  const prev = lastState;
-  const hint = setTimeout(()=>setState("stTapPaste",true), 150);
-  try {
-    const x = await navigator.clipboard.readText();
-    clearTimeout(hint);
-    if (!x || !x.trim()){ prev ? setState(...prev) : setState(null); setState("stClipEmpty",true); return; }
-    loadText(x,false);
-  } catch(_){
-    clearTimeout(hint);
-    $("src").focus();
-    setState("stNoClip",true);
-  }
-});
+
 $("src").addEventListener("paste", e=>{
   const x = e.clipboardData && e.clipboardData.getData("text");
   if (!x) return;
