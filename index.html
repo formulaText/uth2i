@@ -949,7 +949,7 @@ function drawPage2(ctx,m){
 
 /* ================= 投稿用テキスト ================= */
 /* 公開後にサイトのURLが決まったら、ここに入れる（空なら本文にURL行を付けない） */
-const SITE_URL = "";
+const SITE_URL = "https://formulatext.github.io/uth2i/";
 function verdictOf(m){
   const shadow = m.accts.some(l=>l.eff.has("shadow")), sd = shadowDays(m);
   if (shadow) return [t("vShadow"), sd && sd.days < sd.of ? t("vShadowSubDays",sd.days,sd.of) : t("vShadowSub")];
