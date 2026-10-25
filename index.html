@@ -52,6 +52,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .mark{flex:none;display:block}
 .logo{font-family:var(--font-logo);font-weight:600;font-size:1.45rem;letter-spacing:-.02em;line-height:1}
 .logo b{font-weight:600;color:var(--faint)}
+.ver{font-family:var(--font-mono);font-size:.68rem;color:var(--faint);align-self:flex-end;margin-bottom:1px}
 .lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;flex:none}
 .lang button{border:0;background:none;border-radius:999px;padding:4px 12px;font-size:.78rem;font-weight:500;color:var(--muted)}
 .lang button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
@@ -107,6 +108,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .tx-copy:disabled{opacity:.35;cursor:not-allowed}
 .tx-copy.done{background:var(--ink);border-color:var(--ink);color:var(--surface)}
 .tx textarea{width:100%;resize:vertical;font:inherit;font-size:.85rem;line-height:1.6;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+
+/* このツールについて */
+.about{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:16px}
+.credit{font-size:.85rem;font-weight:600}
+.notes{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:8px;font-size:.8rem;color:var(--muted);white-space:pre-line}
+.about a{color:var(--ink);text-decoration:underline;text-underline-offset:3px;word-break:break-all}
 
 /* 保存データ */
 .data{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:16px}
@@ -192,6 +199,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <rect x="14.5" y="1" width="10.5" height="20" rx="2" fill="currentColor"/>
       </svg>
       <span class="logo">UtH<b>2</b>i</span>
+      <span class="ver" id="verTag"></span>
     </div>
     <div class="lang" role="group" aria-label="Language">
       <button type="button" data-lang="ja" aria-pressed="true">日本語</button>
@@ -258,6 +266,20 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <p class="note" id="histEmpty" data-i18n="histEmpty"></p>
   </section>
 
+<footer class="about" aria-labelledby="aboutTitle">
+    <h2 class="tx-title" id="aboutTitle" data-i18n="aboutTitle"></h2>
+    <p class="credit" data-i18n="credit"></p>
+    <ul class="notes">
+      <li data-i18n="noteUnofficial"></li>
+      <li data-i18n="noteAccuracy"></li>
+      <li data-i18n="noteScope"></li>
+      <li data-i18n="notePrivacy"></li>
+    </ul>
+    <p class="note"><span data-i18n="srcLead"></span> <a href="https://github.com/xai-org/x-algorithm/tree/main/under-the-hood" target="_blank" rel="noopener">xai-org/x-algorithm（under-the-hood）</a></p>
+    <p class="note" id="verLine"></p>
+    <p class="note" data-i18n="tm"></p>
+  </footer>
+
 </div>
 
 <div class="drawer" id="drawer" inert>
@@ -309,6 +331,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 <canvas id="c2" width="1240" height="1754" hidden></canvas>
 
 <script>
+/* バージョンと更新日：改修したらここを書き換える */
+const APP_VERSION = "1.0.0";
+const APP_UPDATED = "2026-10-25";
 
 /* ================= 言語 ================= */
 let lang = "ja";
@@ -322,6 +347,13 @@ const L = {
     tabsAria:"プレビューの種類", tabAll:"2枚の全体", tabX:"Xでの見え方", cap1:"1枚目", cap2:"2枚目", saveOne:"この1枚を保存",
     alt1:"1枚目：ひと目でわかる状況", alt2:"2枚目：内訳ときっかけ", yourPost:"あなたの投稿",
     note:"1240×1754px（1:√2）の画像2枚です。画像をタップすると大きく表示できます。保存ボタンが使えない環境では、画像を長押しして保存できます。",
+    aboutTitle:"このツールについて", credit:"作成：Formula",
+    noteUnofficial:"UtH2iは個人が作った非公式のツールです。\nX Corp.とは関係ありません。",
+    noteAccuracy:"画像と投稿用テキストは、読み込んだレポート（JSON）と、Xが公開しているラベルの説明をもとに作っています。\nUtH2iの読み取り方に誤りがあった場合を除き、内容の正確さや、それによって生じた結果について、作成者は責任を負いかねます。",
+    noteScope:"レポートは過去1か月分の記録で、いまの状態とは限りません。\n検索やリプライ欄での見え方など、レポートに記録されない制限もあります。",
+    notePrivacy:"読み込んだレポートは、このブラウザの中だけで処理・保存し、外部には送信しません。\n表示用のフォントと一部の部品は、外部のサーバー（Google Fonts・cdnjs）から読み込みます。",
+    verLine:(v,d)=>{ const [y,m,dd]=d.split("-"); return `バージョン ${v}（${+y}年${+m}月${+dd}日更新）`; },
+    srcLead:"ラベルの説明の出典：", tm:"Xは、X Corp.の商標です。",
     dataTitle:"保存したレポート", dataNote:"正しく読み込めたレポートは、このブラウザの中に自動で保存されます（同じ内容は1回だけ）。タップすると、そのレポートで図解を作り直します。",
     histEmpty:"まだ保存されたレポートはありません。", export:"エクスポート", import:"インポート", clearAll:"すべて消去",
     clearConfirm:"保存したレポートと見た目の設定を、このブラウザからすべて消去します。元に戻せません。", clearYes:"消去する", clearNo:"やめる", clearTitle:"すべて消去しますか？",
@@ -395,6 +427,13 @@ const L = {
     tabsAria:"Preview type", tabAll:"Both images", tabX:"As seen on X", cap1:"Image 1", cap2:"Image 2", saveOne:"Save this image",
     alt1:"Image 1: At a glance", alt2:"Image 2: Breakdown and triggers", yourPost:"Your post",
     note:"Two images at 1240×1754px (1:√2). Tap an image to enlarge it. If the save buttons don't work here, long-press an image to save it.",
+    aboutTitle:"About this tool", credit:"Made by Formula",
+    noteUnofficial:"UtH2i is an unofficial tool made by an individual.\nIt is not affiliated with X Corp.",
+    noteAccuracy:"The images and post text are based on the report (JSON) you load and the label descriptions X has published.\nExcept for errors in how UtH2i reads them, the creator can't take responsibility for the accuracy of the content or any results of using it.",
+    noteScope:"The report covers the past month and may not match your current status.\nSome limits, such as how posts appear in search or replies, are not recorded in it.",
+    notePrivacy:"Your report is processed and stored only in this browser and is never sent anywhere.\nFonts and some components are loaded from external servers (Google Fonts, cdnjs).",
+    verLine:(v,d)=>{ const [y,m,dd]=d.split("-"); return `Version ${v} (updated ${MONTHS[+m-1]} ${+dd}, ${y})`; },
+    srcLead:"Source of label descriptions:", tm:"X is a trademark of X Corp.",
     dataTitle:"Saved reports", dataNote:"Reports that load correctly are saved in this browser automatically (each one only once). Tap one to rebuild the images from it.",
     histEmpty:"No saved reports yet.", export:"Export", import:"Import", clearAll:"Clear all",
     clearConfirm:"This deletes all saved reports and look settings from this browser. It can't be undone.", clearYes:"Delete", clearNo:"Cancel", clearTitle:"Clear everything?",
@@ -1035,6 +1074,7 @@ const store = (k,v) => { try{ localStorage.setItem(k,v); }catch(_){} };
 
 /* ---- 言語の反映 ---- */
 function applyLang(){
+  $("verTag").textContent = "v"+APP_VERSION; $("verLine").textContent = t("verLine",APP_VERSION,APP_UPDATED);
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent=t(el.dataset.i18n); });
   document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ el.placeholder=t(el.dataset.i18nPh); });
@@ -1155,7 +1195,7 @@ $("hist").addEventListener("click",e=>{
 $("exportBtn").addEventListener("click",()=>guarded(async()=>{
   const h = loadHistory(); if(!h.length) return;
   const settings = {}; ["uth-style","uth-theme","uth-sort","uth-lang"].forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!==null) settings[k]=v; }catch(_){} });
-  const out = {app:"UtH2i", version:1, exportedAt:new Date().toISOString(), settings, reports:h.map(e=>({savedAt:e.savedAt, report:e.report}))};
+  const out = {app:"UtH2i", version:1, appVersion:APP_VERSION, exportedAt:new Date().toISOString(), settings, reports:h.map(e=>({savedAt:e.savedAt, report:e.report}))};
   const d=new Date(), stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
   const name=`uth2i-backup-${stamp}.json`, text=JSON.stringify(out,null,1);
   /* 自分のサイトに置いたときはOSの共有シート（「"ファイル"に保存」など）を使う */
