@@ -2,7 +2,7 @@
 
 XのUnder the Hoodレポート（JSON）を、X投稿用の図解画像2枚に変換するWebツールです。
 
-https://ユーザー名.github.io/uth2i/
+https://formulatext.github.io/uth2i/
 
 ## 使い方
 1. XのUnder the Hoodページ（https://x.com/i/under_the_hood）でレポートを入手する
