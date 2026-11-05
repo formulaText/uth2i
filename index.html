@@ -70,6 +70,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .paste-label{font-size:.95rem;font-weight:600}
 .or-file{display:flex;align-items:center;gap:10px;font-size:.82rem;color:var(--muted)}
 .or-file .tx-copy{margin-left:0}
+.or-file .src-clear{margin-left:auto}
 .catcher.drag{border-style:solid;border-color:var(--ink);background:var(--bg)}
 .catcher:focus{border-style:solid;border-color:var(--muted);outline:none}
 .state{font-size:.82rem;color:var(--muted)}
@@ -95,6 +96,27 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .xgrid{aspect-ratio:16/9;display:grid;grid-template-columns:1fr 1fr;gap:2px;border-radius:16px;overflow:hidden}
 .xgrid img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
 .note{font-size:.78rem;color:var(--muted)}
+
+/* 制限された投稿 */
+.posts-sec{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:16px}
+.posts-sec > .note{white-space:pre-line}
+.ps-count{margin-left:8px;font-family:var(--font-mono);font-weight:500;color:var(--muted);font-size:.8rem}
+.ps-list a{display:flex;flex-direction:column;gap:4px;padding:10px 12px;background:var(--surface);color:var(--ink);text-decoration:none}
+.ps-list a:active{background:var(--bg)}
+.ps-row1{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.ps-date{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:.85rem}
+.ps-open{font-size:.75rem;color:var(--muted);display:inline-flex;align-items:center;gap:3px;flex:none}
+.ps-labels{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.78rem;color:var(--muted)}
+.ps-labels span{display:inline-flex;align-items:center;gap:5px}
+.ps-labels i{width:8px;height:8px;border-radius:50%;flex:none}
+.ps-list{max-height:calc(64px * 7.5)}
+.ps-notes{margin:0;padding-left:1.2em;font-size:.78rem;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.ps-notes:empty{display:none}
+#psAppeals details{border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:.8rem}
+#psAppeals details+details{margin-top:6px}
+#psAppeals summary{cursor:pointer;font-weight:600}
+#psAppeals p{margin-top:6px;color:var(--muted);white-space:pre-line;word-break:break-word}
+#psAppeals a{color:var(--ink)}
 
 /* 投稿用テキスト */
 .texts{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:16px}
@@ -215,6 +237,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div class="or-file">
       <span data-i18n="orFile"></span>
       <button type="button" class="tx-copy" id="fileBtn" data-i18n="fromFile"></button>
+      <button type="button" class="tx-copy src-clear" id="srcClear" data-i18n="srcClear" disabled></button>
       <input type="file" id="srcFile" accept="application/json,.json,text/plain" hidden>
     </div>
     <p class="state" id="state"></p>
@@ -239,6 +262,18 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       </div>
     </div>
     <p class="note" data-i18n="note"></p>
+  </section>
+
+  <section class="posts-sec" aria-labelledby="psTitle">
+    <h2 class="tx-title" id="psTitle"><span data-i18n="psTitle"></span><span class="ps-count" id="psCount"></span></h2>
+    <p class="note" data-i18n="psNote"></p>
+    <div class="hist-wrap" id="psWrap">
+      <ul class="hist ps-list" id="psList"></ul>
+      <span class="hist-thumb" id="psThumb" aria-hidden="true"></span>
+    </div>
+    <p class="note" id="psEmpty"></p>
+    <ul class="ps-notes" id="psNotes"></ul>
+    <div id="psAppeals"></div>
   </section>
 
   <section class="texts" aria-labelledby="txTitle">
@@ -332,8 +367,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
 <script>
 /* バージョンと更新日：改修したらここを書き換える */
-const APP_VERSION = "1.0.0";
-const APP_UPDATED = "2026-10-25";
+const APP_VERSION = "1.1.0";
+const APP_UPDATED = "2026-11-05";
 
 /* ================= 言語 ================= */
 let lang = "ja";
@@ -342,7 +377,7 @@ const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","
 const L = {
   ja:{
     lead:"XのUnder the Hoodレポートを、X投稿用の図解2枚に。\nデータは端末の外に出ません。",
-    pasteLabel:"コピーしたレポート（JSON）を貼り付け", orFile:"または", fromFile:"ファイルから読み込む",
+    pasteLabel:"コピーしたレポート（JSON）を貼り付け", orFile:"または", fromFile:"ファイルから読み込む", srcClear:"欄をクリア",
     getLead:"レポートの入手：", getLink:"XのUnder the Hoodページ", catcher:"1. ここをタップする\n2. もう一度タップか長押しで「ペースト」", catcherAria:"レポートの貼り付け欄",
     tabsAria:"プレビューの種類", tabAll:"2枚の全体", tabX:"Xでの見え方", cap1:"1枚目", cap2:"2枚目", saveOne:"この1枚を保存",
     alt1:"1枚目：ひと目でわかる状況", alt2:"2枚目：内訳ときっかけ", yourPost:"あなたの投稿",
@@ -361,6 +396,12 @@ const L = {
     exported:"エクスポートしました。", imported:(a,b)=>`${a}件を読み込みました${b?`（重複${b}件はスキップ）`:""}。`, importNone:(b)=>`新しいレポートはありませんでした${b?`（重複${b}件）`:""}。`,
     importBad:"読み込めませんでした。UtH2iのエクスポートファイルか、Under the HoodのJSONを選んでください。", cleared:"すべて消去しました。",
     saveFull:"ブラウザの保存容量がいっぱいで、履歴に追加できませんでした。",
+    psTitle:"制限された投稿", psCount:n=>`${n}件`,
+    psNote:"ラベルが付いた投稿の一覧です。タップするとXで開きます。\nこの一覧は画面に表示するだけで、画像や投稿用テキストには入りません。",
+    psNone:"このレポートでは、制限された投稿はありません。", psOld:"このレポートには投稿の情報が含まれていません（2026年10月以前の形式）。\nUnder the Hoodで新しくダウンロードし直すと、どの投稿か分かる場合があります。",
+    psOpen:"開く", psRecent:(nm,n,all)=>`「${nm}」は${all}件のうち、新しい${n}件だけが掲載されています。`,
+    psHidden:(nm)=>`「${nm}」は付いた投稿の割合が多いため、Xがどの投稿かを掲載していません。`,
+    psAppealTitle:nm=>`「${nm}」の異議申し立て（英語原文）`,
     txTitle:"投稿用テキスト", txNote:"Xに投稿するときの本文と、画像の説明（ALT）です。ALTは画像を追加したあと「説明を追加」に貼り付けます。読み上げ機能を使う人にも内容が伝わります。",
     txPost:"本文", txAlt1:"1枚目のALT", txAlt2:"2枚目のALT", copy:"コピー", copied:"コピーしました",
     cntPost:n=>`${n}/280（X換算）`, cntAlt:n=>`${n}/1000字`,
@@ -386,7 +427,7 @@ const L = {
     p1Title:"表示制限レポート", p2Title:"内訳ときっかけ",
     vShadow:"アカウント単位の制限あり", vShadowSub:"全投稿がフォロワー外に届きにくい状態",
     vAcct:"アカウントに措置あり", vAcctSub:n=>`アカウントラベル ${n}件`,
-    vPosts:"アカウント単位の制限なし", vPostsSub:n=>`制限は一部の投稿だけ（最大${n}件）`,
+    vPosts:"アカウント単位の制限なし", vPostsSub:(n,ex)=>ex?`制限は一部の投稿だけ（${n}件）`:`制限は一部の投稿だけ（最大${n}件）`,
     vNone:"記録された制限はありません", vNoneSub:"すべての投稿が通常どおり届いていました",
     glance:"ひと目でわかる状況", note1:"「判定不可」は、このレポートに記録されない項目です。", note2:"過去1か月分の記録で、いまの状態とは限りません。",
     tiles:{
@@ -401,7 +442,8 @@ const L = {
     pAllExcludedDays:d=>`全投稿（${d}日間）`, pYesDays:d=>`あり（${d}日間）`, vShadowSubDays:(d,p)=>`期間${p}日のうち${d}日間、全投稿がフォロワー外に届きにくい状態`,
     pVisible:"表示される", pHidden:n=>`一部${n}件 非表示`, pExcluded:n=>`一部${n}件 除外`, pAllExcluded:"全投稿で除外",
     pNa:"判定不可", pYes:"あり", pNo:"なし", pCount:n=>`${n}件`, pAcct:"アカウント全体",
-    breakdown:"投稿の内訳", noLimit:"制限なし", orMore:"以上", unitMore:"件以上", unit:"件", limitedMax:"制限あり（最大）",
+    breakdown:"投稿の内訳", noLimit:"制限なし", orMore:"以上", unitMore:"件以上", unit:"件", limitedMax:"制限あり（最大）", limitedExact:"制限あり", overlapNote:n=>`複数ラベルの投稿${n}件は1件として集計`,
+    trigCapIds:"●＝きっかけになりうるもの",
     plusAcct:n=>`＋ アカウント全体のラベル ${n}件`,
     trigTitle:"ラベルと判定のきっかけ", trigCap:"●＝きっかけになりうるもの（どの投稿がどれかは非公開）",
     trig:{auto:"自動判定",report:"通報",legal:"法的要請",review:"審査",unknown:"不明"},
@@ -422,7 +464,7 @@ const L = {
   },
   en:{
     lead:"Turn X's Under the Hood report into two images ready to post on X.\nYour data never leaves this device.",
-    pasteLabel:"Paste your copied report (JSON)", orFile:"or", fromFile:"Load from a file",
+    pasteLabel:"Paste your copied report (JSON)", orFile:"or", fromFile:"Load from a file", srcClear:"Clear field",
     getLead:"Get your report:", getLink:"X's Under the Hood page", catcher:"1. Tap here\n2. Tap or long-press again and choose Paste", catcherAria:"Report paste field",
     tabsAria:"Preview type", tabAll:"Both images", tabX:"As seen on X", cap1:"Image 1", cap2:"Image 2", saveOne:"Save this image",
     alt1:"Image 1: At a glance", alt2:"Image 2: Breakdown and triggers", yourPost:"Your post",
@@ -441,6 +483,12 @@ const L = {
     exported:"Exported.", imported:(a,b)=>`Imported ${a} report${a>1?"s":""}${b?` (${b} duplicate${b>1?"s":""} skipped)`:""}.`, importNone:(b)=>`No new reports${b?` (${b} duplicate${b>1?"s":""})`:""}.`,
     importBad:"Couldn't read that file. Choose a UtH2i export or an Under the Hood JSON.", cleared:"Everything was cleared.",
     saveFull:"Browser storage is full, so this report wasn't added to the history.",
+    psTitle:"Limited posts", psCount:n=>`${n}`,
+    psNote:"Posts that had a label. Tap one to open it on X.\nThis list is shown here only and is never added to the images or post text.",
+    psNone:"No posts were limited in this report.", psOld:"This report doesn't include which posts were labeled (format before November 2026).\nDownloading it again from Under the Hood may add them.",
+    psOpen:"Open", psRecent:(nm,n,all)=>`"${nm}": only the ${n} newest of ${all} posts are listed.`,
+    psHidden:(nm)=>`"${nm}": X doesn't list the posts because the label covers a large share of them.`,
+    psAppealTitle:nm=>`How to appeal "${nm}" (original text)`,
     txTitle:"Text for your post", txNote:"The post text and image descriptions (ALT) for X. After adding the images, paste each ALT into \"Add description\". It helps people who use screen readers.",
     txPost:"Post", txAlt1:"Image 1 ALT", txAlt2:"Image 2 ALT", copy:"Copy", copied:"Copied",
     cntPost:n=>`${n}/280 (X count)`, cntAlt:n=>`${n}/1000`,
@@ -465,7 +513,7 @@ const L = {
     p1Title:"Visibility Report", p2Title:"Breakdown & Triggers",
     vShadow:"Account-wide limit", vShadowSub:"All posts reach fewer non-followers",
     vAcct:"Action on your account", vAcctSub:n=>`${n} account label${n>1?"s":""}`,
-    vPosts:"No account-wide limits", vPostsSub:n=>`Only some posts limited (up to ${n})`,
+    vPosts:"No account-wide limits", vPostsSub:(n,ex)=>ex?`Only some posts limited (${n})`:`Only some posts limited (up to ${n})`,
     vNone:"No limits recorded", vNoneSub:"All posts were delivered normally",
     glance:"At a glance", note1:"\"Not covered\" items are not recorded in this report.", note2:"Covers the past month and may not match your current status.",
     tiles:{
@@ -480,7 +528,8 @@ const L = {
     pAllExcludedDays:d=>`All posts (${d} days)`, pYesDays:d=>`Yes (${d} days)`, vShadowSubDays:(d,p)=>`For ${d} of ${p} days, all posts reached fewer non-followers`,
     pVisible:"Visible", pHidden:n=>`${n} hidden`, pExcluded:n=>`${n} excluded`, pAllExcluded:"All posts excluded",
     pNa:"Not covered", pYes:"Yes", pNo:"None", pCount:n=>`${n} post${n>1?"s":""}`, pAcct:"Account-wide",
-    breakdown:"Post breakdown", noLimit:"No limits", orMore:"or more", unitMore:"posts or more", unit:"posts", limitedMax:"Limited (at most)",
+    breakdown:"Post breakdown", noLimit:"No limits", orMore:"or more", unitMore:"posts or more", unit:"posts", limitedMax:"Limited (at most)", limitedExact:"Limited", overlapNote:n=>`${n} post${n>1?"s":""} with multiple labels counted once`,
+    trigCapIds:"● = possible trigger",
     plusAcct:n=>`+ ${n} account-wide label${n>1?"s":""}`,
     trigTitle:"Labels & triggers", trigCap:"● = possible trigger (which post got which is not disclosed)",
     trig:{auto:"Auto",report:"Report",legal:"Legal",review:"Review",unknown:"Unknown"},
@@ -567,8 +616,11 @@ const textOf = x => [x.about,x.description,x.effect].filter(Boolean).join(" ");
 function readLabel(x, level){
   const code = String(x.label||x.name||x.type||"");
   const k = norm(code);
+  const ids = level==="post" && Array.isArray(x.postIds) ? [...new Set(x.postIds.map(String).filter(v=>/^[1-9]\d{0,19}$/.test(v)))] : null;
   const base = { code, level, posts: level==="post" ? (num(x.posts)||0) : 0, pct: x.percentageOfPosts ? String(x.percentageOfPosts) : "",
-    days: num(x.days), daysInPeriod: num(x.daysInPeriod) };
+    days: num(x.days), daysInPeriod: num(x.daysInPeriod),
+    ids, idsNote: x.postIdsMostRecentNote ? "recent" : x.postIdsNotShownNote ? "hidden" : "",
+    appeal: typeof x.howToAppeal==="string" ? x.howToAppeal : "" };
   /* 法的な差し止め */
   const tm = /^\s*(LegalRequest|BystanderReport|UnspecifiedReason)\s*(?:\(([^)]*)\))?\s*$/i.exec(code);
   if (tm){
@@ -618,10 +670,17 @@ function labelName(l){
 function toModel(d){
   const posts = (Array.isArray(d.postLabels)?d.postLabels:[]).map(x=>readLabel(x,"post"));
   const accts = (Array.isArray(d.accountLabels)?d.accountLabels:[]).map(x=>readLabel(typeof x==="string"?{label:x}:x,"acct"));
-  const sum = posts.reduce((s,l)=>s+l.posts,0);
-  const total = num(d.postCount) ?? sum;
+  const total0 = num(d.postCount);
+  /* 新形式（postIdsあり）：全ラベルの投稿IDがそろっていれば、重複を除いた正確な件数が出せる */
+  posts.forEach(l=>{ l.complete = !!l.ids && l.ids.length >= l.posts; });
+  const hasIds = posts.some(l=>l.ids);
+  const exact = posts.length>0 && posts.every(l=>l.complete);
+  const union = new Set(posts.flatMap(l=>l.ids||[]));
+  const sum = exact ? union.size : posts.reduce((s,l)=>s+l.posts,0);
+  const total = total0 ?? sum;
   const p = d.period||{};
-  return {posts, accts, sum, total, normal:Math.max(total-sum,0),
+  return {posts, accts, sum, total, normal:Math.max(total-sum,0), exact: exact || !posts.length, hasIds, overlap: exact ? posts.reduce((s,l)=>s+l.posts,0)-union.size : 0,
+    generatedAt: d.generatedAt||"",
     acctCount: Math.max(num(d.totalAccountLabels) ?? 0, accts.length), start:p.startDate, end:p.endDate, tz:p.timezone||"UTC"};
 }
 function periodText(m){
@@ -822,7 +881,9 @@ function shadowDays(m){
   return {days: Math.max(...ls.map(l=>l.days)), of: Math.max(...ls.map(l=>l.daysInPeriod||0)) || 0};
 }
 function statusTiles(m){
-  const cnt = k => Math.min(m.total, m.posts.filter(l=>l.eff.has(k)).reduce((s,l)=>s+l.posts,0));
+  const cnt = k => { const ls=m.posts.filter(l=>l.eff.has(k));
+    if (ls.length && ls.every(l=>l.complete)) return new Set(ls.flatMap(l=>l.ids)).size;
+    return Math.min(m.total, ls.reduce((s,l)=>s+l.posts,0)); };
   const acct = k => m.accts.some(l=>l.eff.has(k));
   const TL = L[lang].tiles;
   const sd = shadowDays(m), part = sd && sd.days < sd.of;
@@ -851,7 +912,7 @@ function drawPage1(ctx,m){
   const sd = shadowDays(m);
   if (shadow){ kind="bad"; main=t("vShadow"); sub = sd && sd.days < sd.of ? t("vShadowSubDays",sd.days,sd.of) : t("vShadowSub"); }
   else if (m.acctCount>0){ kind="bad"; main=t("vAcct"); sub=t("vAcctSub",m.acctCount); }
-  else if (m.posts.length){ main=t("vPosts"); sub=t("vPostsSub",m.sum); }
+  else if (m.posts.length){ main=t("vPosts"); sub=t("vPostsSub",m.sum,m.exact); }
   else { main=t("vNone"); sub=t("vNoneSub"); }
   const vc = TH[kind];
   box(ctx,M,380,W-2*M,136,{tint:vc});
@@ -904,7 +965,7 @@ function drawPage2(ctx,m){
   const pct = m.total ? Math.round(m.normal/m.total*1000)/10 : 100;
   T(ctx,t("noLimit"),cx,cy-34,{s:24,r:"body",w:"b",c:TH.ok,a:"center",max:2*(R-thick)-20});
   runs(ctx,[{t:pct,s:68,r:"num",w:"x",c:TH.fg,gap:2},{t:"%",s:30,r:"num",w:"x",c:TH.fg}],cx,cy+34,"center");
-  T(ctx,labs.length?t("orMore"):"",cx,cy+70,{s:22,r:"body",w:"b",c:TH.muted,a:"center"});
+  T(ctx,labs.length&&!m.exact?t("orMore"):"",cx,cy+70,{s:22,r:"body",w:"b",c:TH.muted,a:"center"});
 
   const lx=M+430;
   const stat=(y,color,label,n,unit)=>{
@@ -912,9 +973,11 @@ function drawPage2(ctx,m){
     T(ctx,label,lx+38,y,{s:26,r:"body",w:"b",c:TH.muted,max:W-M-lx-38});
     runs(ctx,[{t:n,s:72,r:"num",w:"x",c:TH.fg,gap:10},{t:unit,s:26,r:"body",w:"b",c:TH.fg}],lx,y+78,"left");
   };
-  stat(560,TH.ok,t("noLimit"),m.normal,labs.length?t("unitMore"):t("unit"));
-  stat(700,labs.length?TH.warn:TH.line,t("limitedMax"),m.sum,t("unit"));
-  if (m.accts.length) T(ctx,t("plusAcct",m.accts.length),lx,838,{s:24,r:"body",w:"b",c:TH.bad,max:W-M-lx});
+  stat(560,TH.ok,t("noLimit"),m.normal,labs.length&&!m.exact?t("unitMore"):t("unit"));
+  stat(700,labs.length?TH.warn:TH.line,m.exact?t("limitedExact"):t("limitedMax"),m.sum,t("unit"));
+  let ny=838;
+  if (m.overlap>0){ T(ctx,t("overlapNote",m.overlap),lx,ny,{s:22,r:"body",w:"r",c:TH.muted,max:W-M-lx}); ny+=36; }
+  if (m.accts.length) T(ctx,t("plusAcct",m.accts.length),lx,ny,{s:24,r:"body",w:"b",c:TH.bad,max:W-M-lx});
 
   // C. 気をつけること（行数を先に決める）
   const TP=L[lang].tips;
@@ -927,7 +990,7 @@ function drawPage2(ctx,m){
   // B. ラベル×きっかけの表
   const by=922;
   T(ctx,t("trigTitle"),M,by,{s:32,r:"head",w:"b",c:TH.fg});
-  T(ctx,t("trigCap"),M,by+40,{s:21,r:"body",w:"r",c:TH.muted,max:W-2*M});
+  T(ctx,m.hasIds?t("trigCapIds"):t("trigCap"),M,by+40,{s:21,r:"body",w:"r",c:TH.muted,max:W-2*M});
   let rowsEnd = by+60;
   if (!all.length){
     box(ctx,M,by+72,W-2*M,96,{r:Math.min(ST.R,24)});
@@ -990,6 +1053,54 @@ function drawPage2(ctx,m){
   footer(ctx,m);
 }
 
+/* ================= 制限された投稿（画面だけ） ================= */
+const SNOWFLAKE_EPOCH = 1288834974657n;
+const idTime = id => { try { return new Date(Number((BigInt(id) >> 22n) + SNOWFLAKE_EPOCH)); } catch(_){ return null; } };
+const byIdDesc = (a,b) => b.length-a.length || (a<b?1:a>b?-1:0);
+const escHtml = v => String(v).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const linkify = v => escHtml(v).replace(/https?:\/\/[^\s)<]+/g, u=>`<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+function fmtDateTime(d){
+  if (!d || isNaN(d)) return "";
+  const p=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+let psThumbTimer=null;
+function updatePsThumb(show){
+  const el=$("psList"), th=$("psThumb");
+  if (el.scrollHeight <= el.clientHeight+1){ th.classList.remove("on"); th.style.height="0"; return; }
+  const h=Math.max(28, el.clientHeight*el.clientHeight/el.scrollHeight);
+  th.style.height=h+"px"; th.style.transform=`translateY(${(el.clientHeight-h)*el.scrollTop/(el.scrollHeight-el.clientHeight)}px)`;
+  if (show){ th.classList.add("on"); clearTimeout(psThumbTimer); psThumbTimer=setTimeout(()=>th.classList.remove("on"),700); }
+}
+let psBound=false;
+function renderPosts(){
+  const list=$("psList"), notes=$("psNotes"), ap=$("psAppeals");
+  if (!psBound){ list.addEventListener("scroll",()=>updatePsThumb(true),{passive:true}); psBound=true; }
+  list.innerHTML=""; notes.innerHTML=""; ap.innerHTML=""; $("psCount").textContent="";
+  if (!model){ $("psWrap").hidden=true; $("psEmpty").hidden=true; return; }
+  const m=model, byId=new Map();
+  m.posts.forEach(l=>(l.ids||[]).forEach(id=>{ if(!byId.has(id)) byId.set(id,[]); byId.get(id).push(l); }));
+  const ids=[...byId.keys()].sort(byIdDesc);
+  list.innerHTML = ids.map(id=>{
+    const ls=byId.get(id);
+    return `<li><a href="https://x.com/i/status/${id}" target="_blank" rel="noopener">
+      <span class="ps-row1"><span class="ps-date">${fmtDateTime(idTime(id))}</span><span class="ps-open">${t("psOpen")}<svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2h6v6M10 2 3 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+      <span class="ps-labels">${ls.map(l=>`<span><i style="background:${l._c}"></i>${escHtml(labelName(l))}</span>`).join("")}</span></a></li>`;
+  }).join("");
+  $("psWrap").hidden = !ids.length;
+  if (ids.length) $("psCount").textContent = t("psCount", ids.length);
+  $("psEmpty").hidden = !!ids.length;
+  $("psEmpty").textContent = !m.posts.length ? t("psNone") : !m.hasIds ? t("psOld") : "";
+  if (m.hasIds && !ids.length && m.posts.length) $("psEmpty").hidden = true;
+  notes.innerHTML = m.posts.map(l=>{
+    if (l.idsNote==="recent" || (l.ids && l.ids.length && l.ids.length<l.posts)) return `<li>${escHtml(t("psRecent",labelName(l),l.ids.length,l.posts))}</li>`;
+    if (l.idsNote==="hidden") return `<li>${escHtml(t("psHidden",labelName(l)))}</li>`;
+    return "";
+  }).join("");
+  ap.innerHTML = [...m.posts, ...m.accts].filter(l=>l.appeal).map(l=>`<details><summary>${escHtml(t("psAppealTitle",labelName(l)))}</summary><p>${linkify(l.appeal)}</p></details>`).join("");
+  updatePsThumb(false);
+}
+
 /* ================= 投稿用テキスト ================= */
 /* 公開後にサイトのURLが決まったら、ここに入れる（空なら本文にURL行を付けない） */
 const SITE_URL = "https://formulatext.github.io/uth2i/";
@@ -997,7 +1108,7 @@ function verdictOf(m){
   const shadow = m.accts.some(l=>l.eff.has("shadow")), sd = shadowDays(m);
   if (shadow) return [t("vShadow"), sd && sd.days < sd.of ? t("vShadowSubDays",sd.days,sd.of) : t("vShadowSub")];
   if (m.acctCount>0) return [t("vAcct"), t("vAcctSub",m.acctCount)];
-  if (m.posts.length) return [t("vPosts"), t("vPostsSub",m.sum)];
+  if (m.posts.length) return [t("vPosts"), t("vPostsSub",m.sum,m.exact)];
   return [t("vNone"), t("vNoneSub")];
 }
 function orderedTiles(m){
@@ -1031,8 +1142,10 @@ function buildTexts(m){
   let tips=[]; cats.forEach(c=>(TP[c]||TP.other).forEach(x=>{ if(!tips.includes(x)) tips.push(x); }));
   if (!tips.length) tips=TP.none.slice();
   const head = ja
-    ? `Xの表示制限レポートの2枚目「内訳ときっかけ」。制限なし${m.normal}件以上（${pct}%以上）、制限あり最大${m.sum}件。`
-    : `Image 2 of my X visibility report: breakdown and triggers. No limits: ${m.normal} posts or more (${pct}% or more). Limited: at most ${m.sum} posts.`;
+    ? (m.exact ? `Xの表示制限レポートの2枚目「内訳ときっかけ」。制限なし${m.normal}件（${pct}%）、制限あり${m.sum}件。` + (m.overlap?`複数のラベルが付いた投稿${m.overlap}件は1件として集計。`:"")
+               : `Xの表示制限レポートの2枚目「内訳ときっかけ」。制限なし${m.normal}件以上（${pct}%以上）、制限あり最大${m.sum}件。`)
+    : (m.exact ? `Image 2 of my X visibility report: breakdown and triggers. No limits: ${m.normal} posts (${pct}%). Limited: ${m.sum} posts.` + (m.overlap?` ${m.overlap} post${m.overlap>1?"s":""} with multiple labels counted once.`:"")
+               : `Image 2 of my X visibility report: breakdown and triggers. No limits: ${m.normal} posts or more (${pct}% or more). Limited: at most ${m.sum} posts.`);
   const tail = (ja?"気をつけること：":" What to watch: ") + tips.join(ja?"／":"; ") + end;
   let body = all.length ? (ja?"ラベル：":" Labels: ") : (ja?"記録されたラベルはなし。":" No labels recorded.");
   let used = [...head].length + [...tail].length + [...body].length + 2, shown = 0;
@@ -1086,6 +1199,7 @@ function applyLang(){
   document.querySelectorAll("[data-lang]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.lang===lang));
   renderOptions(); if (typeof renderScenarios==="function") renderScenarios(); syncButtons();
   if (typeof renderHistory==="function" && $("hist")) renderHistory();
+  if (typeof renderPosts==="function" && $("psList")) renderPosts();
   if (lastState) setState(...lastState);
   if (lastStatus) say(...lastStatus);
   if (lastErr) showErr(lastErr);
@@ -1157,9 +1271,13 @@ function saveHistory(h){ try { localStorage.setItem(HKEY, JSON.stringify(h)); re
 const isReport = d => d && typeof d==="object" && !Array.isArray(d) && (("postLabels" in d) || ("postCount" in d));
 function sortHistory(h){ return h.sort((a,b)=> String(b.report.period&&b.report.period.startDate||"").localeCompare(String(a.report.period&&a.report.period.startDate||"")) || String(b.savedAt).localeCompare(String(a.savedAt))); }
 /* 追加：同じ内容（JSONとして同一）なら追加しない。戻り値 [id, 追加したか] */
+const reportKey = d => { const p=d.period||{}; return d.generatedAt && p.startDate ? `${p.startDate}|${p.endDate}|${d.generatedAt}` : ""; };
 function addReport(h, d){
   const canon = JSON.stringify(d), id = hashId(canon);
   if (h.some(e=>e.id===id)) return [id,false];
+  /* 同じ期間・同じ作成日時なら同じレポート（Xが項目を足して出し直したもの）。新しい内容で置き換える */
+  const key = reportKey(d), i = key ? h.findIndex(e=>reportKey(e.report)===key) : -1;
+  if (i>=0){ h[i] = {id, savedAt:new Date().toISOString(), report:d}; return [id,true]; }
   h.push({id, savedAt:new Date().toISOString(), report:d});
   return [id,true];
 }
@@ -1270,7 +1388,7 @@ function clearOutput(){
   paintId++; model=null; pendingSecond=false; shareFiles=null;
   if (!$("lb").hidden) lbClose();
   ["viewAll","xpost"].forEach(i=>$(i).classList.remove("stale"));
-  showBlank();
+  showBlank(); renderPosts();
 }
 function showBlank(){
   ["img1","img2","ximg1","ximg2","lb1","lb2"].forEach(id=>{ $(id).src=BLANK; });
@@ -1298,7 +1416,7 @@ async function paint(){
   const md=MODES[modeKey];
   $("xpost").style.background=md.bg; $("xpost").style.color=md.fg; $("xpost").style.borderColor=md.line; $("xav").style.background=md.line;
   blobs = await Promise.all([$("c1"),$("c2")].map(c=>new Promise(r=>c.toBlob(r,"image/png"))));
-  pendingSecond=false; updateShareFiles(); renderTexts(); syncButtons();
+  pendingSecond=false; updateShareFiles(); renderTexts(); renderPosts(); syncButtons();
 }
 
 /* ---- 読み込み ---- */
@@ -1326,7 +1444,7 @@ function run(x){
   setState(debugIdx>=0 ? "debug" : isSample ? "stSample" : "showing");
   paint();
 }
-function loadText(x, sample){ isSample=!!sample; setDebug(-1); $("src").value = sample ? "" : x; run(x); }
+function loadText(x, sample){ isSample=!!sample; setDebug(-1); $("src").value = sample ? "" : x; syncSrcClear(); run(x); }
 
 $("src").addEventListener("paste", e=>{
   const x = e.clipboardData && e.clipboardData.getData("text");
@@ -1340,6 +1458,13 @@ async function loadFile(f){
   loadText(text, false);
 }
 $("fileBtn").addEventListener("click",()=>$("srcFile").click());
+/* 欄をクリア：貼り付け欄と表示中の図解を空にする（保存したレポートは消さない） */
+function syncSrcClear(){ $("srcClear").disabled = !$("src").value; }
+$("srcClear").addEventListener("click",()=>{
+  clearTimeout(timer); $("src").value=""; isSample=false; setDebug(-1);
+  currentId=null; try{ localStorage.removeItem(CKEY); }catch(_){}
+  run(); renderHistory(); syncSrcClear(); $("src").focus();
+});
 $("srcFile").addEventListener("change",e=>{ const f=e.target.files && e.target.files[0]; e.target.value=""; loadFile(f); });
 /* パソコンではファイルを欄にドロップしても読み込める */
 ["dragenter","dragover"].forEach(ev=>$("src").addEventListener(ev,e=>{ if([...(e.dataTransfer&&e.dataTransfer.types||[])].includes("Files")){ e.preventDefault(); $("src").classList.add("drag"); } }));
@@ -1349,7 +1474,7 @@ $("src").addEventListener("drop",e=>{
   $("src").classList.remove("drag");
   if (f){ e.preventDefault(); loadFile(f); }
 });
-$("src").addEventListener("input", ()=>{ isSample=false; setDebug(-1); clearTimeout(timer); timer=setTimeout(()=>run(),250); });
+$("src").addEventListener("input", ()=>{ syncSrcClear(); isSample=false; setDebug(-1); clearTimeout(timer); timer=setTimeout(()=>run(),250); });
 
 /* ---- 保存 ---- */
 function fileBase(){
