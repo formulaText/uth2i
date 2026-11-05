@@ -167,6 +167,19 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .data-btns .tx-copy{margin-left:0}
 .tx-copy.danger{color:var(--bad)}
 .tx-copy.danger-solid{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+/* 更新履歴 */
+.ver-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.link-btn{border:0;background:none;padding:0;font-size:inherit;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.modal-card.cl-card{max-width:440px;max-height:min(80vh,640px);padding:0;gap:0;overflow:hidden}
+.cl-head{display:flex;justify-content:space-between;align-items:center;padding:16px 16px 12px 20px;border-bottom:1px solid var(--line)}
+.cl-close{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--ink)}
+.cl-body{overflow-y:auto;padding:4px 20px 20px;overscroll-behavior:contain;touch-action:pan-y}
+.cl-ver{padding-top:16px}
+.cl-ver h3{margin:0 0 6px;font-size:.9rem;display:flex;align-items:baseline;gap:10px}
+.cl-ver h3 span{font-family:var(--font-mono);font-weight:500;font-size:.75rem;color:var(--muted)}
+.cl-ver ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px;font-size:.84rem;color:var(--muted)}
+.cl-ver + .cl-ver{border-top:1px solid var(--line);margin-top:16px}
+
 /* 消去確認のモーダル（背面はぼかし・スクロール不可） */
 .modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
   padding:max(20px,env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) max(20px,env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));
@@ -330,7 +343,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <li data-i18n="notePrivacy"></li>
     </ul>
     <p class="note"><span data-i18n="srcLead"></span> <a href="https://github.com/xai-org/x-algorithm/tree/main/under-the-hood" target="_blank" rel="noopener">xai-org/x-algorithm（under-the-hood）</a></p>
-    <p class="note" id="verLine"></p>
+    <p class="note ver-line"><span id="verLine"></span><button type="button" class="link-btn" id="clOpen" data-i18n="clOpen"></button></p>
     <p class="note" data-i18n="tm"></p>
   </footer>
 
@@ -354,6 +367,14 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <a id="postX" class="btn xpost-btn" href="https://x.com/intent/post" target="_blank" rel="noopener" data-i18n="postX"></a>
     </div>
     <p class="status" id="status"></p>
+  </div>
+</div>
+
+<div class="modal" id="clBox" hidden>
+  <div class="modal-card cl-card" role="dialog" aria-modal="true" aria-labelledby="clTitle">
+    <div class="cl-head"><h2 id="clTitle" data-i18n="clTitle"></h2>
+      <button type="button" class="cl-close" id="clClose"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3 L13 13 M13 3 L3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+    <div class="cl-body" id="clBody"></div>
   </div>
 </div>
 
@@ -389,6 +410,36 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 /* バージョンと更新日：改修したらここを書き換える */
 const APP_VERSION = "1.2.0";
 const APP_UPDATED = "2026-11-05";
+/* 更新履歴：GitHubに公開した版だけを載せる。新しい版を上に足す */
+const CHANGELOG = [
+  {v:"1.2.0", d:"2026-11-05", ja:[
+    "2枚目の「気をつけること」を「関係するXのルール」に変更。ラベルの公式説明に書かれているルールを表示",
+    "「関係するXのルール」を画像に載せるか、ページだけに表示するかを「見た目」で選べるように",
+    "ページに「関係するXのルール」を追加。Xのヘルプのページを開ける",
+    "更新履歴を見られるように"
+  ], en:[
+    "Replaced \"What to watch\" on image 2 with \"Related X rules\", taken from the official label descriptions",
+    "Choose in Look whether related X rules appear in the image or on the page only",
+    "Added \"Related X rules\" to the page with links to X Help",
+    "Added release notes"
+  ]},
+  {v:"1.1.0", d:"2026-11-05", ja:[
+    "新しい形式のレポート（投稿ID入り）に対応",
+    "複数のラベルが付いた投稿を1件として数え、制限された投稿の件数を正確に表示",
+    "ページに「制限された投稿」の一覧を追加。投稿日時と付いたラベルを表示し、Xで開ける（画像には入れない）",
+    "レポートに異議申し立ての方法があれば表示",
+    "同じレポートの新しい形式を読み込んだら、保存済みのものを置き換えるように",
+    "貼り付け欄に「欄をクリア」ボタンを追加"
+  ], en:[
+    "Supports the new report format with post IDs",
+    "Counts posts with multiple labels once, so the number of limited posts is exact",
+    "Added a list of limited posts with date, labels, and a link to X (never included in the images)",
+    "Shows how to appeal when the report includes it",
+    "A newer download of the same report replaces the saved one",
+    "Added a \"Clear field\" button to the paste field"
+  ]},
+  {v:"1.0.0", d:"2026-10-25", ja:["最初の公開版"], en:["First public release"]}
+];
 
 /* ================= 言語 ================= */
 let lang = "ja";
@@ -407,6 +458,7 @@ const L = {
     noteAccuracy:"画像と投稿用テキストは、読み込んだレポート（JSON）と、Xが公開しているラベルの説明をもとに作っています。\nUtH2iの読み取り方に誤りがあった場合を除き、内容の正確さや、それによって生じた結果について、作成者は責任を負いかねます。",
     noteScope:"レポートは過去1か月分の記録で、いまの状態とは限りません。\n検索やリプライ欄での見え方など、レポートに記録されない制限もあります。",
     notePrivacy:"読み込んだレポートは、このブラウザの中だけで処理・保存し、外部には送信しません。\n表示用のフォントと一部の部品は、外部のサーバー（Google Fonts・cdnjs）から読み込みます。",
+    clOpen:"更新履歴", clTitle:"更新履歴", clClose:"閉じる",
     verLine:(v,d)=>{ const [y,m,dd]=d.split("-"); return `バージョン ${v}（${+y}年${+m}月${+dd}日更新）`; },
     srcLead:"ラベルの説明の出典：", tm:"Xは、X Corp.の商標です。",
     dataTitle:"保存したレポート", dataNote:"正しく読み込めたレポートは、このブラウザの中に自動で保存されます（同じ内容は1回だけ）。タップすると、そのレポートで図解を作り直します。",
@@ -497,6 +549,7 @@ const L = {
     noteAccuracy:"The images and post text are based on the report (JSON) you load and the label descriptions X has published.\nExcept for errors in how UtH2i reads them, the creator can't take responsibility for the accuracy of the content or any results of using it.",
     noteScope:"The report covers the past month and may not match your current status.\nSome limits, such as how posts appear in search or replies, are not recorded in it.",
     notePrivacy:"Your report is processed and stored only in this browser and is never sent anywhere.\nFonts and some components are loaded from external servers (Google Fonts, cdnjs).",
+    clOpen:"Release notes", clTitle:"Release notes", clClose:"Close",
     verLine:(v,d)=>{ const [y,m,dd]=d.split("-"); return `Version ${v} (updated ${MONTHS[+m-1]} ${+dd}, ${y})`; },
     srcLead:"Source of label descriptions:", tm:"X is a trademark of X Corp.",
     dataTitle:"Saved reports", dataNote:"Reports that load correctly are saved in this browser automatically (each one only once). Tap one to rebuild the images from it.",
@@ -1272,6 +1325,7 @@ const store = (k,v) => { try{ localStorage.setItem(k,v); }catch(_){} };
 
 /* ---- 言語の反映 ---- */
 function applyLang(){
+  $("clClose").setAttribute("aria-label", t("clClose")); if (!$("clBox").hidden) renderChangelog();
   $("verTag").textContent = "v"+APP_VERSION; $("verLine").textContent = t("verLine",APP_VERSION,APP_UPDATED);
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent=t(el.dataset.i18n); });
@@ -1442,6 +1496,25 @@ function lockScroll(on){
   if (on){ scrollLockY=window.scrollY; de.style.overflow="hidden"; b.style.position="fixed"; b.style.top=`-${scrollLockY}px`; b.style.left="0"; b.style.right="0"; }
   else { de.style.overflow=""; b.style.position=""; b.style.top=""; b.style.left=""; b.style.right=""; window.scrollTo(0,scrollLockY); }
 }
+function fmtVerDate(d){ const [y,m,dd]=d.split("-"); return lang==="ja" ? `${+y}年${+m}月${+dd}日` : `${MON[+m-1]} ${+dd}, ${y}`; }
+function renderChangelog(){
+  $("clBody").innerHTML = CHANGELOG.map(c=>`<section class="cl-ver"><h3>v${c.v}<span>${fmtVerDate(c.d)}</span></h3><ul>${(c[lang]||c.ja).map(x=>`<li>${escHtml(x)}</li>`).join("")}</ul></section>`).join("");
+}
+function openChangelog(){
+  renderChangelog(); $("clBox").hidden=false; lockScroll(true);
+  document.querySelectorAll(".wrap,.bar,.drawer").forEach(el=>el.inert=true);
+  $("clBody").scrollTop=0; $("clClose").focus();
+}
+function closeChangelog(){
+  $("clBox").hidden=true; lockScroll(false);
+  document.querySelectorAll(".wrap,.bar").forEach(el=>el.inert=false); $("drawer").inert=!$("drawer").classList.contains("open");
+  $("clOpen").focus();
+}
+$("clOpen").addEventListener("click",openChangelog);
+$("clClose").addEventListener("click",closeChangelog);
+$("clBox").addEventListener("click",e=>{ if(e.target===$("clBox")) closeChangelog(); });
+$("clBox").addEventListener("touchmove",e=>{ if(!e.target.closest(".cl-body")) e.preventDefault(); },{passive:false});
+document.addEventListener("keydown",e=>{ if(!$("clBox").hidden && e.key==="Escape") closeChangelog(); });
 function openConfirm(){ $("confirmBox").hidden=false; lockScroll(true); document.querySelectorAll(".wrap,.bar,.drawer").forEach(el=>el.inert=true); $("clearNo").focus(); }
 function closeConfirm(){ $("confirmBox").hidden=true; lockScroll(false); document.querySelectorAll(".wrap,.bar").forEach(el=>el.inert=false); $("drawer").inert=!$("drawer").classList.contains("open"); }
 $("clearBtn").addEventListener("click",openConfirm);
