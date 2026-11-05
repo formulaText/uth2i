@@ -408,10 +408,25 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
 <script>
 /* バージョンと更新日：改修したらここを書き換える */
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.2.2";
 const APP_UPDATED = "2026-11-05";
 /* 更新履歴：GitHubに公開した版だけを載せる。新しい版を上に足す */
 const CHANGELOG = [
+  {v:"1.2.2", d:"2026-11-05", ja:[
+    "すべての投稿に付いたラベルがあるとき、制限された投稿の件数を正しく表示するように（投稿数を超えたり「0件以上」と出たりしていた不具合の修正）",
+    "2枚目の表で、件数とアカウントラベルの期間をラベル名の左に表示するように",
+    "アカウントラベルの期間を「9月中」「9月のうち5日」のように表示するように",
+    "2枚目の表に見出し（件数・期間／ラベル／判定のきっかけ）と区切り線を追加",
+    "2枚目の表の下に、件数・期間と●の意味の説明を追加",
+    "2枚目のグラフの中央に、「制限なし」ではなく「制限あり」の割合を表示するように"
+  ], en:[
+    "Fixed the limited post count when one label covers every post (it could exceed the total or show \"0 or more\")",
+    "On image 2, counts and account label periods now appear left of the label name",
+    "Account label periods now read like \"All of Sep\" or \"5 days in Sep\"",
+    "Added headings (Count / period, Label, Triggers) and a divider to the table on image 2",
+    "Added notes under the table explaining counts, periods, and ●",
+    "The chart on image 2 now shows the share of limited posts in the center, instead of posts with no limits"
+  ]},
   {v:"1.2.0", d:"2026-11-05", ja:[
     "2枚目の「気をつけること」を「関係するXのルール」に変更。ラベルの公式説明に書かれているルールを表示",
     "「関係するXのルール」を画像に載せるか、ページだけに表示するかを「見た目」で選べるように",
@@ -517,14 +532,17 @@ const L = {
     pAllExcludedDays:d=>`全投稿（${d}日間）`, pYesDays:d=>`あり（${d}日間）`, vShadowSubDays:(d,p)=>`期間${p}日のうち${d}日間、全投稿がフォロワー外に届きにくい状態`,
     pVisible:"表示される", pHidden:n=>`一部${n}件 非表示`, pExcluded:n=>`一部${n}件 除外`, pAllExcluded:"全投稿で除外",
     pNa:"判定不可", pYes:"あり", pNo:"なし", pCount:n=>`${n}件`, pAcct:"アカウント全体",
-    breakdown:"投稿の内訳", noLimit:"制限なし", orMore:"以上", unitMore:"件以上", unit:"件", limitedMax:"制限あり（最大）", limitedExact:"制限あり", overlapNote:n=>`複数ラベルの投稿${n}件は1件として集計`,
+    breakdown:"投稿の内訳", noLimit:"制限なし", orMore:"以上", orLess:"以下", pctUnder:"未満", unitMore:"件以上", unit:"件", limitedMax:"制限あり（最大）", limitedExact:"制限あり", overlapNote:n=>`複数ラベルの投稿${n}件は1件として集計`,
     trigCapIds:"●＝きっかけになりうるもの",
     plusAcct:n=>`＋ アカウント全体のラベル ${n}件`,
     trigTitle:"ラベルと判定のきっかけ", trigCap:"●＝きっかけになりうるもの（どの投稿がどれかは非公開）",
     trig:{auto:"自動判定",report:"通報",legal:"法的要請",review:"審査",unknown:"不明"},
     copyrightTag:"著作権", worldTag:"全世界", days:(d,p)=>p?`${d}/${p}日`:`${d}日`,
+    daysFullMonth:mo=>`${mo}月中`, daysInMonth:(mo,d)=>`${mo}月のうち${d}日`, daysFull:"期間中", daysPart:d=>`期間中${d}日`,
     noLabels:"記録されたラベルはありません", all:"全体", aggAcct:n=>`アカウント全体のラベル ${n}種`,
-    omitted:n=>`ほか${n}種のラベル（件数の少ないもの）は省略`, tipsTitle:"気をつけること", rulesTitle:"関係するXのルール", rulesMore:n=>`ほか${n}件`,
+    omitted:n=>`ほか${n}種のラベル（件数の少ないもの）は省略`, tipsTitle:"気をつけること", trigGroup:"判定のきっかけ", colCount:"件数・期間", colLabel:"ラベル",
+    noteCount:"件数・期間＝そのラベルが付いた投稿の数、またはアカウントに付いていた期間",
+    noteDot:"●＝Xの公式説明で、判定のきっかけとされているもの（複数あればそのどれか。回数ではない）", rulesTitle:"関係するXのルール", rulesMore:n=>`ほか${n}件`,
     tips:{
       nsfw:["成人向けの絵は、投稿時に自分でセンシティブ設定をつける","成人向け判定が重なると、アカウント単位の制限に進むことがある"],
       gore:["流血・暴力表現は、投稿時にセンシティブ設定をつける"], spam:["同じ文面・タグ・リンクの連投を控える"],
@@ -607,14 +625,17 @@ const L = {
     pAllExcludedDays:d=>`All posts (${d} days)`, pYesDays:d=>`Yes (${d} days)`, vShadowSubDays:(d,p)=>`For ${d} of ${p} days, all posts reached fewer non-followers`,
     pVisible:"Visible", pHidden:n=>`${n} hidden`, pExcluded:n=>`${n} excluded`, pAllExcluded:"All posts excluded",
     pNa:"Not covered", pYes:"Yes", pNo:"None", pCount:n=>`${n} post${n>1?"s":""}`, pAcct:"Account-wide",
-    breakdown:"Post breakdown", noLimit:"No limits", orMore:"or more", unitMore:"posts or more", unit:"posts", limitedMax:"Limited (at most)", limitedExact:"Limited", overlapNote:n=>`${n} post${n>1?"s":""} with multiple labels counted once`,
+    breakdown:"Post breakdown", noLimit:"No limits", orMore:"or more", orLess:"or less", pctUnder:"under", unitMore:"posts or more", unit:"posts", limitedMax:"Limited (at most)", limitedExact:"Limited", overlapNote:n=>`${n} post${n>1?"s":""} with multiple labels counted once`,
     trigCapIds:"● = possible trigger",
     plusAcct:n=>`+ ${n} account-wide label${n>1?"s":""}`,
     trigTitle:"Labels & triggers", trigCap:"● = possible trigger (which post got which is not disclosed)",
     trig:{auto:"Auto",report:"Report",legal:"Legal",review:"Review",unknown:"Unknown"},
     copyrightTag:"copyright", worldTag:"worldwide", days:(d,p)=>p?`${d}/${p} days`:`${d} days`,
+    daysFullMonth:mo=>`All of ${MON[mo-1]}`, daysInMonth:(mo,d)=>`${d} day${d>1?"s":""} in ${MON[mo-1]}`, daysFull:"Whole period", daysPart:d=>`${d} day${d>1?"s":""}`,
     noLabels:"No labels recorded", all:"All", aggAcct:n=>`${n} account-wide labels`,
-    omitted:n=>`${n} more label${n>1?"s":""} with fewer posts omitted`, tipsTitle:"What to watch", rulesTitle:"Related X rules", rulesMore:n=>`${n} more`,
+    omitted:n=>`${n} more label${n>1?"s":""} with fewer posts omitted`, tipsTitle:"What to watch", trigGroup:"Triggers", colCount:"Count / period", colLabel:"Label",
+    noteCount:"Count / period = posts with that label, or how long it was on your account",
+    noteDot:"● = trigger named in X's official description (any one of them if several; not a count)", rulesTitle:"Related X rules", rulesMore:n=>`${n} more`,
     tips:{
       nsfw:["Mark adult artwork as sensitive when you post it","Repeated adult flags can lead to account-wide limits"],
       gore:["Mark gore or violence as sensitive when you post it"], spam:["Avoid repeating the same text, tags, or links"],
@@ -797,14 +818,38 @@ function toModel(d){
   /* 新形式（postIdsあり）：全ラベルの投稿IDがそろっていれば、重複を除いた正確な件数が出せる */
   posts.forEach(l=>{ l.complete = !!l.ids && l.ids.length >= l.posts; });
   const hasIds = posts.some(l=>l.ids);
-  const exact = posts.length>0 && posts.every(l=>l.complete);
   const union = new Set(posts.flatMap(l=>l.ids||[]));
-  const sum = exact ? union.size : posts.reduce((s,l)=>s+l.posts,0);
+  const rawSum = posts.reduce((s,l)=>s+l.posts,0);
+  /* どれか1つのラベルが全投稿に付いていれば、制限された投稿は全件で確定 */
+  const allCovered = total0>0 && posts.some(l=>l.posts>=total0);
+  const exactIds = posts.length>0 && posts.every(l=>l.complete);
+  const exact = allCovered || exactIds;
+  let sum = allCovered ? total0 : exactIds ? union.size : rawSum;
   const total = total0 ?? sum;
+  sum = Math.min(sum, total);   /* 足し算で投稿数を超えないように */
   const p = d.period||{};
-  return {posts, accts, sum, total, normal:Math.max(total-sum,0), exact: exact || !posts.length, hasIds, overlap: exact ? posts.reduce((s,l)=>s+l.posts,0)-union.size : 0,
+  return {posts, accts, sum, total, normal:Math.max(total-sum,0), exact: exact || !posts.length, hasIds, overlap: overlapPosts(posts, allCovered, exactIds),
     generatedAt: d.generatedAt||"",
     acctCount: Math.max(num(d.totalAccountLabels) ?? 0, accts.length), start:p.startDate, end:p.endDate, tz:p.timezone||"UTC"};
+}
+/* アカウントラベルが付いていた日数の表記 */
+function daysText(l, m){
+  if (!l.days) return t("all");
+  const m1=/^(\d{4})-(\d{2})-01/.exec(m.start||""), m2=/^(\d{4})-(\d{2})-(\d{2})/.exec(m.end||"");
+  const whole = m1 && m2 && m1[1]===m2[1] && m1[2]===m2[2] && +m2[3]===new Date(Date.UTC(+m2[1],+m2[2],0)).getUTCDate();
+  const full = l.daysInPeriod ? l.days>=l.daysInPeriod : false;
+  return whole ? (full ? t("daysFullMonth", +m1[2]) : t("daysInMonth", +m1[2], l.days))
+               : (full ? t("daysFull") : t("daysPart", l.days));
+}
+/* 複数のラベルが付いた投稿の数（分かるときだけ。分からなければ0で表示しない） */
+function overlapPosts(posts, allCovered, exactIds){
+  if (exactIds){ const c=new Map(); posts.forEach(l=>l.ids.forEach(id=>c.set(id,(c.get(id)||0)+1))); return [...c.values()].filter(v=>v>1).length; }
+  if (allCovered){
+    const full = posts.find(l=>l.posts>=Math.max(...posts.map(x=>x.posts)));
+    const others = posts.filter(l=>l!==full);
+    if (others.every(l=>l.complete)) return new Set(others.flatMap(l=>l.ids)).size;
+  }
+  return 0;
 }
 function periodText(m){
   const m1=/^(\d{4})-(\d{2})-(\d{2})/.exec(m.start||""), m2=/^(\d{4})-(\d{2})-(\d{2})/.exec(m.end||"");
@@ -1065,6 +1110,13 @@ function drawPage1(ctx,m){
   footer(ctx,m);
 }
 
+/* 制限ありの割合。0件より多いのに0.0%になるときは「0.1%未満」 */
+function limitedPct(m){
+  if (!m.total || m.sum<=0) return {v:0, tiny:false};
+  const v = Math.round(m.sum/m.total*1000)/10;
+  return v<0.1 ? {v:0.1, tiny:true} : {v, tiny:false};
+}
+
 /* ================= 2枚目：内訳ときっかけ ================= */
 function drawPage2(ctx,m){
   header(ctx,m,t("p2Title"),2);
@@ -1085,10 +1137,11 @@ function drawPage2(ctx,m){
     a0+=s.a; });
   ctx.lineCap="butt";
   if (ST.tile==="pop"){ ctx.strokeStyle=TH.fg; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.stroke(); ctx.beginPath(); ctx.arc(cx,cy,R-thick,0,7); ctx.stroke(); }
-  const pct = m.total ? Math.round(m.normal/m.total*1000)/10 : 100;
-  T(ctx,t("noLimit"),cx,cy-34,{s:24,r:"body",w:"b",c:TH.ok,a:"center",max:2*(R-thick)-20});
-  runs(ctx,[{t:pct,s:68,r:"num",w:"x",c:TH.fg,gap:2},{t:"%",s:30,r:"num",w:"x",c:TH.fg}],cx,cy+34,"center");
-  T(ctx,labs.length&&!m.exact?t("orMore"):"",cx,cy+70,{s:22,r:"body",w:"b",c:TH.muted,a:"center"});
+  /* 中央は「制限あり」の割合（見る人が気にするのは制限があるかどうかなので） */
+  const lp = limitedPct(m);
+  T(ctx,t("limitedExact"),cx,cy-34,{s:24,r:"body",w:"b",c:m.sum>0?TH.warn:TH.muted,a:"center",max:2*(R-thick)-20});
+  runs(ctx,[{t:lp.v,s:68,r:"num",w:"x",c:TH.fg,gap:2},{t:"%",s:30,r:"num",w:"x",c:TH.fg}],cx,cy+34,"center");
+  T(ctx,lp.tiny?t("pctUnder"):(labs.length&&!m.exact?t("orLess"):""),cx,cy+70,{s:22,r:"body",w:"b",c:TH.muted,a:"center"});
 
   const lx=M+430;
   const stat=(y,color,label,n,unit)=>{
@@ -1104,9 +1157,16 @@ function drawPage2(ctx,m){
 
   // C. 関係するXのルール（「ページだけ」の設定なら画像には載せない）
   const ruleKeys = rulesInImage ? rulesFor(m) : [];
-  const maxLines = all.length>4 ? 2 : 3;
-  let tips = ruleKeys.slice(0, ruleKeys.length>maxLines ? maxLines-1 : maxLines).map(k=>RULES[k][lang]);
-  if (ruleKeys.length>tips.length) tips.push(t("rulesMore", ruleKeys.length-tips.length));
+  const rowsNeeded = Math.min(all.length, 6) * 50;
+  const room = (n)=> (H-140-(96+n*52)) - 36 - 76 - (922+166);   /* 枠をn行にしたときに表が使える高さ */
+  let tips = ruleKeys.map(k=>RULES[k][lang]);
+  if (tips.length>1 && room(tips.length) < rowsNeeded){
+    /* 入りきらなければ1行にまとめる */
+    const sep = lang==="ja" ? "／" : " / ";
+    let line = tips[0], k = 1;
+    while (k<tips.length && (line+sep+tips[k]).length <= (lang==="ja"?34:64)){ line += sep+tips[k]; k++; }
+    tips = [k<ruleKeys.length ? line + sep + t("rulesMore", ruleKeys.length-k) : line];
+  }
   const showBox = tips.length>0;
   const boxH = showBox ? 96+tips.length*52 : 0, boxLimit = H-140-(showBox ? boxH : 0);
 
@@ -1123,15 +1183,19 @@ function drawPage2(ctx,m){
     const ORDER=["auto","report","legal","review","unknown"], TG=L[lang].trig;
     const kinds=ORDER.filter(k=>all.some(l=>l.trig.has(k)));
     const colW=Math.min(116,(W-M-(M+560))/kinds.length), colX0=W-M-colW*kinds.length;
-    const hy=by+88;
+    const hy=by+112;
+    /* 右側のきっかけ列をひとまとめにして見出しを付け、左側（ラベルと件数）と分ける */
+    const gx0=colX0+6, gx1=W-M-6;
+    T(ctx,t("trigGroup"),(gx0+gx1)/2,by+76,{s:20,r:"body",w:"b",c:TH.muted,a:"center",max:gx1-gx0});
+    ctx.fillStyle=TH.line; ctx.fillRect(gx0,by+86,gx1-gx0,2);
     kinds.forEach((k,j)=>{
       const x=colX0+colW*j+colW/2;
-      drawIcon(ctx,TRIG_ICON[k],x,hy,34,TH.fg,3.4);
-      T(ctx,TG[k],x,hy+44,{s:20,r:"body",w:"b",c:TH.muted,a:"center",max:colW-6});
+      drawIcon(ctx,TRIG_ICON[k],x,hy,30,TH.fg,3.4);
+      T(ctx,TG[k],x,hy+38,{s:20,r:"body",w:"b",c:TH.muted,a:"center",max:colW-6});
     });
-    const rowsStart=hy+62;
-    let rowH=72, fitN=Math.floor((boxLimit-36-rowsStart)/rowH);
-    for (const h of [60,50]) if (all.length>fitN){ rowH=h; fitN=Math.floor((boxLimit-36-rowsStart)/rowH); }
+    const rowsStart=hy+54, notesH=76;
+    let rowH=72, fitN=Math.floor((boxLimit-36-notesH-rowsStart)/rowH);
+    for (const h of [60,50]) if (all.length>fitN){ rowH=h; fitN=Math.floor((boxLimit-36-notesH-rowsStart)/rowH); }
     fitN=Math.max(fitN,1);
     let list = all;
     if (all.length>fitN && m.accts.length>1){
@@ -1140,17 +1204,23 @@ function drawPage2(ctx,m){
     }
     const shown = list.length>fitN ? list.slice(0,fitN-1) : list;
     const hiddenCount = list.length>fitN ? all.length-(list!==all ? m.accts.length+shown.length-1 : shown.length) : 0;
+    const countW = Math.min(250, Math.max(84, meas(ctx,t("colCount"),{s:20,r:"body",w:"b"}), ...shown.map(l=>{
+      if (l.level==="acct") return meas(ctx, l.agg ? t("all") : daysText(l,m), {s:26,r:"body",w:"x"});
+      return meas(ctx,l.posts,{s:40,r:"num",w:"x"}) + (lang==="en"?0:3+meas(ctx,t("unit"),{s:20,r:"body",w:"b"}));
+    })));
+    /* 左側の見出し：件数・期間 ／ ラベル */
+    T(ctx,t("colCount"),M+36+countW,hy+38,{s:20,r:"body",w:"b",c:TH.muted,a:"right"});
+    T(ctx,t("colLabel"),M+36+countW+24,hy+38,{s:20,r:"body",w:"b",c:TH.muted});
     shown.forEach((l,i)=>{
       const y=rowsStart+i*rowH, mid=y+rowH/2;
       if (i%2===0){ if(ST.tile==="line"){ ctx.fillStyle=TH.line; ctx.fillRect(M-16,y,W-2*M+32,1.5); } else { ctx.fillStyle=TH.card; rr(ctx,M-16,y,W-2*M+32,rowH,Math.min(ST.R,14)); ctx.fill(); } }
       ctx.fillStyle=l._c; ctx.beginPath(); ctx.arc(M+10,mid,11,0,7); ctx.fill();
-      const countRight=colX0-28;
-      let cw;
-      if (l.level==="acct") cw = l.days ? T(ctx,t("days",l.days,l.daysInPeriod),countRight,mid+11,{s:28,r:"body",w:"x",c:TH.bad,a:"right"})
-                                        : T(ctx,t("all"),countRight,mid+12,{s:30,r:"body",w:"x",c:TH.bad,a:"right"});
-      else cw = lang==="en" ? T(ctx,l.posts,countRight,mid+14,{s:40,r:"num",w:"x",c:TH.fg,a:"right"})
-                            : runs(ctx,[{t:l.posts,s:40,r:"num",w:"x",c:TH.fg,gap:3},{t:t("unit"),s:20,r:"body",w:"b",c:TH.fg}],countRight,mid+14,"right");
-      T(ctx,labelName(l),M+36,mid+10,{s:28,r:"body",w:"b",c:TH.fg,max:countRight-cw-20-(M+36)});
+      /* 左から「色・件数（または付いていた期間）・ラベル名」。件数はラベルの件数で、通報の数ではない */
+      const cx0=M+36, cRight=cx0+countW;
+      if (l.level==="acct") T(ctx,l.agg ? t("all") : daysText(l,m),cRight,mid+10,{s:26,r:"body",w:"x",c:TH.bad,a:"right",max:countW});
+      else if (lang==="en") T(ctx,l.posts,cRight,mid+14,{s:40,r:"num",w:"x",c:TH.fg,a:"right"});
+      else runs(ctx,[{t:l.posts,s:40,r:"num",w:"x",c:TH.fg,gap:3},{t:t("unit"),s:20,r:"body",w:"b",c:TH.fg}],cRight,mid+14,"right");
+      T(ctx,labelName(l),cRight+24,mid+10,{s:28,r:"body",w:"b",c:TH.fg,max:colX0-28-(cRight+24)});
       kinds.forEach((k,j)=>{
         const x=colX0+colW*j+colW/2;
         if (l.trig.has(k)){ ctx.fillStyle=l._c; ctx.beginPath(); ctx.arc(x,mid,15,0,7); ctx.fill(); if(ST.tile==="pop"){ ctx.strokeStyle=TH.fg; ctx.lineWidth=3; ctx.stroke(); } }
@@ -1158,10 +1228,16 @@ function drawPage2(ctx,m){
       });
       rowsEnd=y+rowH;
     });
+    /* 左右を分ける縦線 */
+    ctx.fillStyle=TH.line; ctx.fillRect(colX0-14,by+64,2,rowsEnd-(by+64));
     if (hiddenCount>0){
       T(ctx,t("omitted",hiddenCount),M+36,rowsEnd+38,{s:22,r:"body",w:"r",c:TH.muted,max:W-2*M-36});
       rowsEnd+=52;
     }
+    /* 表の説明 */
+    T(ctx,t("noteCount"),M,rowsEnd+34,{s:20,r:"body",w:"r",c:TH.muted,max:W-2*M});
+    T(ctx,t("noteDot"),M,rowsEnd+64,{s:20,r:"body",w:"r",c:TH.muted,max:W-2*M});
+    rowsEnd+=notesH;
   }
 
   const boxY=Math.min(boxLimit, rowsEnd+44);
@@ -1271,19 +1347,20 @@ function buildTexts(m){
     : `Image 1 of my X visibility report (${per}, ${m.total} posts). Result: ${v}. ${vs}. At a glance: ${tl}. "Not covered" items are not recorded in this report. Covers the past month only.`;
   /* 2枚目 */
   const all=[...m.accts, ...[...m.posts].sort((a,b)=>b.posts-a.posts)];
-  const pct = m.total ? Math.round(m.normal/m.total*1000)/10 : 100;
+  const lp = limitedPct(m);
+  const pj = lp.tiny ? `${lp.v}%未満` : `${lp.v}%`, pe = lp.tiny ? `under ${lp.v}%` : `${lp.v}%`;
   const labs = all.map(l=>{
-    const c = l.level==="acct" ? (l.days ? t("days",l.days,l.daysInPeriod) : t("all")) : (ja?`${l.posts}件`:`${l.posts} posts`);
-    return ja ? `${labelName(l)}：${c}（きっかけ：${trigs(l)}）` : `${labelName(l)}, ${c} (trigger: ${trigs(l)})`;
+    const c = l.level==="acct" ? daysText(l,m) : (ja?`${l.posts}件`:`${l.posts} posts`);
+    return ja ? `「${labelName(l)}」${c}（判定のきっかけになりうるもの：${trigs(l)}）` : `${labelName(l)}: ${c} (possible trigger: ${trigs(l)})`;
   });
   const tips = rulesInImage ? rulesFor(m).map(k=>RULES[k][lang]) : [];
   const head = ja
-    ? (m.exact ? `Xの表示制限レポートの2枚目「内訳ときっかけ」。制限なし${m.normal}件（${pct}%）、制限あり${m.sum}件。` + (m.overlap?`複数のラベルが付いた投稿${m.overlap}件は1件として集計。`:"")
-               : `Xの表示制限レポートの2枚目「内訳ときっかけ」。制限なし${m.normal}件以上（${pct}%以上）、制限あり最大${m.sum}件。`)
-    : (m.exact ? `Image 2 of my X visibility report: breakdown and triggers. No limits: ${m.normal} posts (${pct}%). Limited: ${m.sum} posts.` + (m.overlap?` ${m.overlap} post${m.overlap>1?"s":""} with multiple labels counted once.`:"")
-               : `Image 2 of my X visibility report: breakdown and triggers. No limits: ${m.normal} posts or more (${pct}% or more). Limited: at most ${m.sum} posts.`);
+    ? (m.exact ? `Xの表示制限レポートの2枚目「内訳ときっかけ」。制限あり${m.sum}件（${pj}）、制限なし${m.normal}件。` + (m.overlap?`複数のラベルが付いた投稿${m.overlap}件は1件として集計。`:"")
+               : `Xの表示制限レポートの2枚目「内訳ときっかけ」。制限あり最大${m.sum}件（${pj}${lp.tiny?"":"以下"}）、制限なし${m.normal}件以上。`)
+    : (m.exact ? `Image 2 of my X visibility report: breakdown and triggers. Limited: ${m.sum} posts (${pe}). No limits: ${m.normal} posts.` + (m.overlap?` ${m.overlap} post${m.overlap>1?"s":""} with multiple labels counted once.`:"")
+               : `Image 2 of my X visibility report: breakdown and triggers. Limited: at most ${m.sum} posts (${pe}${lp.tiny?"":" or less"}). No limits: ${m.normal} posts or more.`);
   const tail = tips.length ? (ja?"関係するXのルール：":" Related X rules: ") + tips.join(ja?"／":"; ") + end : "";
-  let body = all.length ? (ja?"ラベル：":" Labels: ") : (ja?"記録されたラベルはなし。":" No labels recorded.");
+  let body = all.length ? (ja?"ラベルと、付いた投稿の数・期間：":" Labels with the number of posts or period: ") : (ja?"記録されたラベルはなし。":" No labels recorded.");
   let used = [...head].length + [...tail].length + [...body].length + 2, shown = 0;
   for (const x of labs){ const add = (shown?(ja?"／":"; "):"") + x; if (used + [...add].length > 960) break; body += add; used += [...add].length; shown++; }
   if (shown < labs.length) body += ja ? `／ほか${labs.length-shown}種` : `; ${labs.length-shown} more`;
